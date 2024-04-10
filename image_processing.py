@@ -10,16 +10,18 @@ def threshold(image, threshold):
 
     return binary_image
 
-def view_image(image):
+def view_image(image, title=None):
     image_shape = image.shape
-    print("viewing image")
+    #print("viewing image")
     #fit image to screen
     if image.shape[0] >= 1080 or image.shape[1] >= 1920:
         max_size = max(image.shape[0], image.shape[1])
         scale = 1080 / max_size
         new_size = (int(image.shape[1] * scale), int(image.shape[0] * scale))
         image = cv2.resize(image, new_size)
-    cv2.imshow(f"shape = {image_shape}", image)
+    if title is not None:
+        title = f"{title} shape = {image_shape}"
+    cv2.imshow(title, image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 

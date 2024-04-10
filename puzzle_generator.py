@@ -245,7 +245,7 @@ def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5):
 
 if __name__ == '__main__':
     path = "input_photos/bliss.png"
-    scattered_puzzle, mask = image_to_puzzles(path, 5)
+    scattered_puzzle, mask = image_to_puzzles(path, 3)
 
     image_processing.save_image("results/generated.png", scattered_puzzle)
     image_processing.save_image("results/generated_mask.png", mask)

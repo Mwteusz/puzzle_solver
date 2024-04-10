@@ -55,6 +55,7 @@ def bound_image(edges):
 
 def num_of_edges(image):
     edges = cv2.Canny(image, 10, 200)
+    #image_processing.view_image(edges)
     edges = bound_image(edges)//255
 
 
@@ -148,7 +149,7 @@ def find_rotation(puzzles):
         selected_puzzle = rotate(puzzle, median_element)
         selected_puzzles.append(selected_puzzle)
         corners = get_corners(rotate(mask * 255, median_element))
-    return selected_puzzles
+    return selected_puzzles, corners
 
 
 def extract_puzzles(path):
@@ -160,7 +161,7 @@ def extract_puzzles(path):
     masks = detect_puzzles(mask)
     print(f"number of puzzles: {len(masks)}")
     selected_puzzles = get_puzzles_from_masks(image, masks)
-    selected_puzzles = find_rotation(selected_puzzles)
+    selected_puzzles, corners = find_rotation(selected_puzzles)
     return selected_puzzles
 
 

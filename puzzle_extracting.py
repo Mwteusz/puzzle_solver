@@ -72,30 +72,40 @@ def num_of_edges(image):
     return num
 
 def get_corners(image):
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
     edges = cv2.Canny(image * 255, 10, 200)
+    edges = cv2.morphologyEx(edges, cv2.MORPH_DILATE, kernel)
     edges = bound_image(edges) // 255
     img = edges.copy()
     corners = []
     y = 0
     for line in edges:
-        # print("LEN:",len(line))
         counts = np.bincount(line)
 
         if len(counts) == 2:
             if counts[1] > 0.3 * counts[0]:
-                # image_processing.view_image(edges)
                 indexes = np.argwhere(line == 1)
                 x1 = indexes[0][0]
                 x2 = indexes[-1][0]
-                corners.append((x1, y))
-                corners.append((x2, y))
+                corners.append(((x1, y), (x2, y)))
         y += 1
-    for i in corners:
-        x, y = i
-        cv2.circle(edges, (x, y), 5, 255, -1)
+
+    max_field = 0
+    best_corners = []
+
+    for a1, a2 in corners:
+        for b1, b2 in corners:
+            field = min(abs(a1[0] - a2[0]), abs(b1[0] - b2[0])) * abs(a1[1] - b2[1])
+            if field > max_field:
+                max_field = field
+                best_corners = [a1, a2, b1, b2]
+
+    for corner in best_corners:
+        cv2.circle(edges, (corner[0], corner[1]), 5, 255, -1)
+
     image_processing.view_image(img * 255)
     image_processing.view_image(edges)
-    return corners
+    return best_corners
 
 def get_puzzles_from_masks(image, masks):
     puzzles = []

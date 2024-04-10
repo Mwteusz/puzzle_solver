@@ -70,6 +70,31 @@ def num_of_edges(image):
                 #image_processing.view_image(edges)
     return num
 
+def get_corners(image):
+    edges = cv2.Canny(image * 255, 10, 200)
+    edges = bound_image(edges) // 255
+    img = edges.copy()
+    corners = []
+    y = 0
+    for line in edges:
+        # print("LEN:",len(line))
+        counts = np.bincount(line)
+
+        if len(counts) == 2:
+            if counts[1] > 0.3 * counts[0]:
+                # image_processing.view_image(edges)
+                indexes = np.argwhere(line == 1)
+                x1 = indexes[0][0]
+                x2 = indexes[-1][0]
+                corners.append((x1, y))
+                corners.append((x2, y))
+        y += 1
+    for i in corners:
+        x, y = i
+        cv2.circle(edges, (x, y), 5, 255, -1)
+    image_processing.view_image(img * 255)
+    image_processing.view_image(edges)
+    return corners
 
 def get_puzzles_from_masks(image, masks):
     puzzles = []
@@ -122,6 +147,7 @@ def find_rotation(puzzles):
         median_element = np.median(largest_group)
         selected_puzzle = rotate(puzzle, median_element)
         selected_puzzles.append(selected_puzzle)
+        corners = get_corners(rotate(mask * 255, median_element))
     return selected_puzzles
 
 

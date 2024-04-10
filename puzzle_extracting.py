@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 
 import test
 
+import teeth_detection
+
 
 def turn_into_binary(image):
     if len(image.shape) == 2:
@@ -50,13 +52,14 @@ def bound_image(edges):
 
     x, y, w, h = cv2.boundingRect(edges)
     bound = edges[y:y + h, x:x + w]
-    return bound
+    return bound, (x,y)
 
 
 def num_of_edges(image):
     edges = cv2.Canny(image, 10, 200)
     #image_processing.view_image(edges)
-    edges = bound_image(edges)//255
+    bounded, _ = bound_image(edges)
+    edges = bounded//255
 
 
     num = 0
@@ -75,7 +78,8 @@ def get_corners(image):
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
     edges = cv2.Canny(image * 255, 10, 200)
     edges = cv2.morphologyEx(edges, cv2.MORPH_DILATE, kernel)
-    edges = bound_image(edges) // 255
+    edges, point = bound_image(edges)
+    edges = edges//255
     img = edges.copy()
     corners = []
     y = 0
@@ -103,9 +107,10 @@ def get_corners(image):
     for corner in best_corners:
         cv2.circle(edges, (corner[0], corner[1]), 5, 255, -1)
 
-    image_processing.view_image(img * 255)
-    image_processing.view_image(edges)
-    return best_corners
+    #image_processing.view_image(img * 255)
+    #image_processing.view_image(edges)
+    return [(corner[0] + point[0], corner[1] + point[1]) for corner in best_corners]
+
 
 def get_puzzles_from_masks(image, masks):
     puzzles = []
@@ -134,8 +139,9 @@ def find_neighbours(angles, distance=5):
 
 def find_rotation(puzzles):
     selected_puzzles = []
+    puzzle_corners = []
     for i, (puzzle, mask) in enumerate(puzzles):
-        print(f"#{i}")
+        #print(f"#{i}")
         # image_processing.view_image(puzzle)
 
         angles = []
@@ -147,7 +153,7 @@ def find_rotation(puzzles):
             num = num_of_edges(rotated_puzzle * 255)
             if num > 1:
                 angles.append(angle)
-                print(f"\tangle: {angle}, edges: {num}")
+                #print(f"\tangle: {angle}, edges: {num}")
                 # image_processing.view_image(rotated_puzzle*255)
         if len(angles) == 0:
             print("no edges found!!!!!!!!!!")
@@ -157,9 +163,11 @@ def find_rotation(puzzles):
         largest_group = max(groups, key=len)
         median_element = np.median(largest_group)
         selected_puzzle = rotate(puzzle, median_element)
-        selected_puzzles.append(selected_puzzle)
         corners = get_corners(rotate(mask * 255, median_element))
-    return selected_puzzles, corners
+
+        selected_puzzles.append(selected_puzzle)
+        puzzle_corners.append(corners)
+    return selected_puzzles, puzzle_corners
 
 
 def extract_puzzles(path):
@@ -171,8 +179,8 @@ def extract_puzzles(path):
     masks = detect_puzzles(mask)
     print(f"number of puzzles: {len(masks)}")
     selected_puzzles = get_puzzles_from_masks(image, masks)
-    selected_puzzles, corners = find_rotation(selected_puzzles)
-    return selected_puzzles
+    rotated_puzzles, corners = find_rotation(selected_puzzles)
+    return rotated_puzzles, corners
 
 
 
@@ -182,8 +190,14 @@ def extract_puzzles(path):
 if __name__ == '__main__':
     path = "results/processed_photo.png"
     #path = "results/generated.png"
-    extracted_puzzles = extract_puzzles(path)
+    puzzles, corners = extract_puzzles(path)
 
-    for i, puzzle in enumerate(extracted_puzzles):
-        image_processing.save_image(f"extracted/puzzle_{i}.png", puzzle)
+
+    for i, (puzzle, corners) in enumerate(zip(puzzles, corners)):
+        info = teeth_detection.get_teeth(puzzle, corners)
+        for type, result in info.items():
+            print(type, result)
+        image_processing.view_image(puzzle, title=f"puzzle_{i}")
+
+        #image_processing.save_image(f"extracted/puzzle_{i}.png", puzzle)
 

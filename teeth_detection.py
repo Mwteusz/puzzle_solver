@@ -107,26 +107,19 @@ def is_there_knob(knob_check, mask):
         return True
 
 
-if __name__ == '__main__':
-    puzel = image_processing.load_image("testowy2.png")
-    image_processing.view_image(puzel)
+"""puzel to maska!!!"""
+def get_teeth(puzel, corners):
 
-    corners = {
-        CornerType.TOP_LEFT: (43, 53),
-        CornerType.TOP_RIGHT: (165, 53),
-        CornerType.BOTTOM_LEFT: (43, 174),
-        CornerType.BOTTOM_RIGHT: (165, 174)
-    }
 
-    vectors = []
-    vectors.append((Vector(corners[CornerType.TOP_LEFT], corners[CornerType.BOTTOM_LEFT]),"LEFT"))
-    vectors.append((Vector(corners[CornerType.TOP_RIGHT], corners[CornerType.BOTTOM_RIGHT]), "RIGHT"))
-    vectors.append((Vector(corners[CornerType.TOP_LEFT], corners[CornerType.TOP_RIGHT]),"TOP"))
-    vectors.append((Vector(corners[CornerType.BOTTOM_LEFT], corners[CornerType.BOTTOM_RIGHT]),"BOTTOM"))
+    vectors = {}
+    vectors["TOP"] = Vector(corners[0], corners[1])
+    vectors["RIGHT"] = Vector(corners[1], corners[3])
+    vectors["LEFT"] = Vector(corners[0], corners[2])
+    vectors["BOTTOM"] = Vector(corners[2], corners[3])
 
-    for vector in vectors:
-        vector, type = vector
-        print(type,end=" ")
+    edges_info = {}
+
+    for type, vector in vectors.items():
 
         #outside knobs
         slices = get_image_slices(vector, puzel)
@@ -136,21 +129,31 @@ if __name__ == '__main__':
         #image_processing.view_image(knob_check, title="knob_check")
 
 
-        ratio = np.count_nonzero(knob_check) / np.count_nonzero(outside_mask)
-
-
         if is_there_hole_inside(vector, puzel):
-            print("dziura",end=" ")
+            result = "hole"
         elif is_there_knob(knob_check, outside_mask):
-            print("ząb",end=" ")
+            result = "tooth"
         else:
-            print("brak",end=" ")
+            result = "none"
         #image_processing.view_image(knob_check,title = ratio)
-        print()
-    image_processing.view_image(puzel)
+        edges_info[type] = result
+    #image_processing.view_image(puzel)
+    return edges_info
 
 
+if __name__ == '__main__':
+    puzel = image_processing.load_image("testowy2.png")
+    corners = [
+        (43, 53),
+        (165, 53),
+        (43, 174),
+        (165, 174)
+    ]
 
+
+    info = get_teeth(puzel, corners)
+    for type, result in info.items():
+        print(type, result)
 
 
 

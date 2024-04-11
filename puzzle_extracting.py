@@ -104,11 +104,11 @@ def get_corners(image):
                 max_field = field
                 best_corners = [a1, a2, b1, b2]
 
-    for corner in best_corners:
-        cv2.circle(edges, (corner[0], corner[1]), 5, 255, -1)
+    #for corner in best_corners:
+    #    cv2.circle(edges, (corner[0], corner[1]), 5, 255, -1)
+    #image_processing.view_image(edges)
 
     #image_processing.view_image(img * 255)
-    #image_processing.view_image(edges)
     return [(corner[0] + point[0], corner[1] + point[1]) for corner in best_corners]
 
 

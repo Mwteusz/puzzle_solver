@@ -84,14 +84,26 @@ def count_flips(pixels):
     return flips
 
 
+def convert_rgb_to_binary(pixel):
+    if pixel[0] == 0:
+        return 0
+    return 255
+
+
 def is_there_hole_inside(vector, image):
     center = (image.shape[1]//2, image.shape[0]//2)
     point1 = move_towards(vector.point1, center, percentage=0.1)
     point2 = move_towards(vector.point2, center, percentage=0.1)
 
+    preview = draw_circle(image, point1, 5, (0,0,255))
+    preview = draw_circle(preview, point2, 5, (0,0,255))
+    image_processing.view_image(preview)
+
     coords = bresenham.connect(point1, point2)
-    pixels_rgb = [image[coord[1],coord[0]] for coord in coords]
-    pixels = [pixel[0]//255 for pixel in pixels_rgb]
+    pixels = [convert_rgb_to_binary(image[coord[1],coord[0]]) for coord in coords]
+
+
+
     amount = count_flips(pixels)
     if amount == 2:
         return True

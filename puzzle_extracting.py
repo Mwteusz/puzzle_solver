@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import test
 
 import teeth_detection
+from teeth_detection import NotchType
 
 
 def turn_into_binary(image):
@@ -170,34 +171,56 @@ def find_rotation(puzzles):
     return selected_puzzles, puzzle_corners
 
 
-def extract_puzzles(path):
-    #wygenerowane puzzle
-    image = image_processing.load_image(path)
-    mask = image_processing.load_image(path.replace(".", "_mask."))
-
-
+def extract_puzzles(image, mask):
     masks = detect_puzzles(mask)
     print(f"number of puzzles: {len(masks)}")
     selected_puzzles = get_puzzles_from_masks(image, masks)
     rotated_puzzles, corners = find_rotation(selected_puzzles)
-    return rotated_puzzles, corners
+
+    puzzles = []
+    for (image, puzzle_corners) in zip(rotated_puzzles, corners):
+        notches = teeth_detection.get_teeth(image, puzzle_corners)
+        puzzle = ExtractedPuzzle(notches, image, puzzle_corners)
+        puzzles.append(puzzle)
+
+    return puzzles
 
 
+class ExtractedPuzzle:
+    def __init__(self, notches: [NotchType], image, corners):
+        self.notches = notches
+        self.image = image
+        self.corners = corners
 
+    def __str__(self):
+        str = ""
+        for type, result in self.notches.items():
+            str += f"{type}\t {result}\n"
+        return str
+
+    """ direction means 'left' or 'right' """
+    def rotate(self,direction):
+        #TODO
+        #rotate image,
+        #move the notches over,
+        #done, return None
+        pass
 
 
 
 if __name__ == '__main__':
     path = "results/processed_photo.png"
     #path = "results/generated.png"
-    puzzles, corners = extract_puzzles(path)
 
+    image = image_processing.load_image(path)
+    mask = image_processing.load_image(path.replace(".", "_mask."))
 
-    for i, (puzzle, corners) in enumerate(zip(puzzles, corners)):
-        info = teeth_detection.get_teeth(puzzle, corners)
-        for type, result in info.items():
-            print(type, result)
-        image_processing.view_image(puzzle, title=f"puzzle_{i}")
+    puzzles = extract_puzzles(image, mask)
 
-        #image_processing.save_image(f"extracted/puzzle_{i}.png", puzzle)
+    for i, puzzle in enumerate(puzzles):
+        print(puzzle)
+        puzzle_name = f"puzzle_{i}"
+        image_processing.view_image(puzzle.image, title=puzzle_name)
+        image_processing.save_image(f"extracted/{puzzle_name}.png", puzzle.image)
+
 

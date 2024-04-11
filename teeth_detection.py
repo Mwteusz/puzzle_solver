@@ -32,21 +32,6 @@ def get_image_slices(vector, image):
     return slice1, slice2
 
 
-def view_line(perpendicular_line, shape, title=None):
-    image = np.zeros(shape)
-    for y in range(shape[0]):
-        for x in range(shape[1]):
-            if perpendicular_line.function(x) > y:
-                image[y][x] = [255,255,255]
-    image_processing.view_image(image, title=title)
-
-
-def find_intersection(line, perpendicular_line):
-    x = (perpendicular_line.b - line.b) / (line.a - perpendicular_line.a)
-    y = line.a * x + line.b
-    return x, y
-
-
 class Vector:
     def __init__(self, point1, point2):
         self.point1 = point1
@@ -95,9 +80,10 @@ def is_there_hole_inside(vector, image):
     point1 = move_towards(vector.point1, center, percentage=0.1)
     point2 = move_towards(vector.point2, center, percentage=0.1)
 
-    preview = draw_circle(image, point1, 5, (0,0,255))
-    preview = draw_circle(preview, point2, 5, (0,0,255))
-    image_processing.view_image(preview)
+    #display edges
+    #preview = draw_circle(image, point1, 5, (0,0,255))
+    #preview = draw_circle(preview, point2, 5, (0,0,255))
+    #image_processing.view_image(preview)
 
     coords = bresenham.connect(point1, point2)
     pixels = [convert_rgb_to_binary(image[coord[1],coord[0]]) for coord in coords]
@@ -119,7 +105,14 @@ def is_there_knob(knob_check, mask):
         return True
 
 
-"""puzel to maska!!!"""
+class NotchType(Enum):
+    e = 0,
+    HOLE = 1,
+    TOOTH = 2
+
+
+
+
 def get_teeth(puzel, corners):
 
 
@@ -142,19 +135,20 @@ def get_teeth(puzel, corners):
 
 
         if is_there_hole_inside(vector, puzel):
-            result = "hole"
+            result = NotchType.HOLE
         elif is_there_knob(knob_check, outside_mask):
-            result = "tooth"
+            result = NotchType.TOOTH
         else:
-            result = "none"
+            result = NotchType.e
         #image_processing.view_image(knob_check,title = ratio)
         edges_info[type] = result
     #image_processing.view_image(puzel)
     return edges_info
 
 
+
 if __name__ == '__main__':
-    puzel = image_processing.load_image("testowy2.png")
+    puzzle_image = image_processing.load_image("testowy2.png")
     corners = [
         (43, 53),
         (165, 53),
@@ -163,9 +157,11 @@ if __name__ == '__main__':
     ]
 
 
-    info = get_teeth(puzel, corners)
+    info = get_teeth(puzzle_image, corners)
     for type, result in info.items():
         print(type, result)
+    print()
+    image_processing.view_image(puzzle_image)
 
 
 

@@ -60,6 +60,11 @@ class ExtractedPuzzle:
 
     def align_to_grid(self):
         puzzle_image, mask = self.image, self.mask
+        #optimization, may not be needed
+        w, h = mask.shape
+        if w > 100 or h > 100:
+            mask = cv2.resize(mask, (100, 100))
+        #
         angles = []
         for angle in range(0, 360):
             rotated_mask = rotate(mask, angle)
@@ -73,7 +78,7 @@ class ExtractedPuzzle:
         largest_group = max(groups, key=len)
         median_element = np.median(largest_group)
 
-        self.mask = rotate(mask, median_element)
+        self.mask = rotate(self.mask, median_element)
         self.mask = turn_into_binary(self.mask, 0.5)  # removes aliasing
         self.image = rotate(puzzle_image, median_element)
         self.corners = None  # corners need to be recalculated

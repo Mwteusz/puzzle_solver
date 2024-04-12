@@ -55,20 +55,22 @@ class ExtractedPuzzle:
                     max_field = field
                     best_corners = [a1, a2, b1, b2]
         self.corners = [(corner[0] + point[0], corner[1] + point[1]) for corner in best_corners]
+        if len(self.corners) != 4:
+            raise Exception(f"4 corners should be found, but found: {len(self.corners)}")
 
     def get_preview(self):
-        #display edges
+        if self.corners is None or self.notches is None:
+            raise Exception("corners or notches not found")
+
         preview = self.image.copy()
+        for corner in self.corners:
+            cv2.circle(preview, corner, 5, (255,0,0), -1)
         for type, vector in teeth_detection.get_vectors_from_corners(self.corners).items():
             cv2.line(preview, vector.point1, vector.point2, (255,128,64), 1)
             notch_type = self.notches[type]
-            name = notch_type.name.removeprefix("NotchType.")
-
-            cv2.putText(preview, f"{name}", vector.get_point_between(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-
-
-        for corner in self.corners:
-            cv2.circle(preview, corner, 5, (255,0,0), -1)
+            name = notch_type.name.removeprefix("NotchType.").capitalize()
+            cv2.putText(preview, f"{name}", vector.get_point_between(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
+            cv2.putText(preview, f"{name}", vector.get_point_between(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255),1, cv2.LINE_AA)
 
         return preview
 
@@ -96,6 +98,7 @@ class PuzzleCollection:
 
             puzzle.image = rotate(puzzle_image, median_element)
             puzzle.mask = rotate(mask, median_element) * 255
+            puzzle.corners = None #corners need to be recalculated
         return
 
 

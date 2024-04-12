@@ -79,6 +79,7 @@ def convert_rgb_to_binary(pixel):
 
 
 def is_there_hole_inside(vector, image):
+    """check if there is a hole inside the piece, by checking if there are 2 flips in the pixels on the vector line"""
     center = (image.shape[1]//2, image.shape[0]//2)
     point1 = move_towards(vector.point1, center, percentage=0.1)
     point2 = move_towards(vector.point2, center, percentage=0.1)
@@ -86,12 +87,18 @@ def is_there_hole_inside(vector, image):
     coords = bresenham.connect(point1, point2)
     pixels = [convert_rgb_to_binary(image[coord[1],coord[0]]) for coord in coords]
 
-
+    # preview = draw_circle(image, point1, 3, (0, 0, 255))
+    # preview = draw_circle(preview, point2, 3, (0, 0, 255))
+    # preview = cv2.line(preview, point1, point2, (0, 0, 255), 1)
+    # print(pixels)
+    # image_processing.view_image(preview)
 
     amount = count_flips(pixels)
     if amount == 2:
+        if np.unique(pixels, return_counts=True)[1][0] <= 2: #TODO remove this hack. fix generator instead
+            return False
         return True
-    elif amount == 0:
+    if amount == 0:
         return False
     raise Exception("There should be 2 flips or 0 flips")
 
@@ -104,7 +111,7 @@ def is_there_knob(knob_check, mask):
 
 
 class NotchType(Enum):
-    e = 0,
+    NONE = 0,
     HOLE = 1,
     TOOTH = 2
 
@@ -141,7 +148,7 @@ def get_teeth(puzzle_image, corners):
         elif is_there_knob(knob_check, outside_mask):
             result = NotchType.TOOTH
         else:
-            result = NotchType.e
+            result = NotchType.NONE
         #image_processing.view_image(knob_check,title = ratio)
         edges_info[type] = result
     #image_processing.view_image(puzel)

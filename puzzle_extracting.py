@@ -28,7 +28,7 @@ class ExtractedPuzzle:
 
     def find_corners(self):
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
-        edges = cv2.Canny(self.mask * 255, 10, 200)
+        edges = cv2.Canny(self.mask, 10, 200)
         edges = cv2.morphologyEx(edges, cv2.MORPH_DILATE, kernel)
         edges, point = bound_image(edges)
         edges = edges // 255
@@ -58,6 +58,29 @@ class ExtractedPuzzle:
         if len(self.corners) != 4:
             raise Exception(f"4 corners should be found, but found: {len(self.corners)}")
 
+    def align_to_grid(self):
+        puzzle_image, mask = self.image, self.mask
+        angles = []
+        for angle in range(0, 360):
+            rotated_mask = rotate(mask * 255, angle)
+            num = num_of_edges(rotated_mask * 255)
+            if num > 1:
+                angles.append(angle)
+        if len(angles) == 0:
+            raise Exception("No edges found!!!!!!!")
+
+        groups = find_neighbours(angles)
+        largest_group = max(groups, key=len)
+        median_element = np.median(largest_group)
+
+        self.mask = rotate(mask, median_element)
+        self.mask = turn_into_binary(self.mask, 0.5)  # removes aliasing
+        self.image = rotate(puzzle_image, median_element)
+        self.corners = None  # corners need to be recalculated
+        return
+    def find_notches(self):
+        self.notches = teeth_detection.get_teeth(self.image, self.corners)
+
     def get_preview(self):
         if self.corners is None or self.notches is None:
             raise Exception("corners or notches not found")
@@ -65,12 +88,14 @@ class ExtractedPuzzle:
         preview = self.image.copy()
         for corner in self.corners:
             cv2.circle(preview, corner, 5, (255,0,0), -1)
+
         for type, vector in teeth_detection.get_vectors_from_corners(self.corners).items():
             cv2.line(preview, vector.point1, vector.point2, (255,128,64), 1)
             notch_type = self.notches[type]
-            name = notch_type.name.removeprefix("NotchType.").capitalize()
-            cv2.putText(preview, f"{name}", vector.get_point_between(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
-            cv2.putText(preview, f"{name}", vector.get_point_between(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255),1, cv2.LINE_AA)
+            if notch_type is not NotchType.NONE:
+                name = notch_type.name.removeprefix("NotchType.").capitalize()
+                cv2.putText(preview, f"{name}", vector.get_point_between(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
+                cv2.putText(preview, f"{name}", vector.get_point_between(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255),1, cv2.LINE_AA)
 
         return preview
 
@@ -82,35 +107,34 @@ class PuzzleCollection:
     def align_all(self):
         """finds the best angle for each puzzle, so that the edges are aligned to a grid"""
         for i, puzzle in enumerate(self.pieces):
-            puzzle_image, mask = puzzle.image, puzzle.mask
-            angles = []
-            for angle in range(0, 360):
-                rotated_mask = rotate(mask * 255, angle)
-                num = num_of_edges(rotated_mask * 255)
-                if num > 1:
-                    angles.append(angle)
-            if len(angles) == 0:
-                raise Exception("No edges found!!!!!!!")
-
-            groups = find_neighbours(angles)
-            largest_group = max(groups, key=len)
-            median_element = np.median(largest_group)
-
-            puzzle.image = rotate(puzzle_image, median_element)
-            puzzle.mask = rotate(mask, median_element) * 255
-            puzzle.corners = None #corners need to be recalculated
+            if i != 0:
+                print("\r", end="")
+            print(f"aligning piece {i + 1} out of {len(self.pieces)}", end="")
+            puzzle.align_to_grid()
+        print("\n")
         return
 
 
     def establish_notches(self):
         """finds the notches for each puzzle"""
-        for puzzle in self.pieces:
-            puzzle.notches = teeth_detection.get_teeth(puzzle.image, puzzle.corners)
+        for i, puzzle in enumerate(self.pieces):
+            if i != 0:
+                print("\r", end="")
+            print(f"finding notches in piece {i + 1} out of {len(self.pieces)}", end="")
+            puzzle.find_notches()
+        print("\n")
+        return
 
     def find_corners(self):
         """finds the corners of each puzzle"""
-        for puzzle in self.pieces:
+        for i, puzzle in enumerate(self.pieces):
+            if i != 0:
+                print("\r", end="")
+            print(f"finding corners in piece {i + 1} out of {len(self.pieces)}", end="")
             puzzle.find_corners()
+        print("\n")
+        return
+
     def find_common_rotation(self):
         """checks if puzzles are rectangles, if so, aligns them to the same rotation"""
         #TODO
@@ -125,14 +149,13 @@ class PuzzleCollection:
         return str
 
 
-def turn_into_binary(image):
-    if len(image.shape) == 2:
-        return image
-
+def turn_into_binary(image, threshold=0.0):
+    if len(image.shape) != 2:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     result = np.zeros((image.shape[0], image.shape[1], 1), dtype=np.uint8)
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
-            if image[i][j][0] > 0:
+            if image[i][j] > 255*threshold:
                 result[i][j] = 255
     return result
 
@@ -164,7 +187,6 @@ def rotate(image, angle):
 
 
 def bound_image(edges):
-
     x, y, w, h = cv2.boundingRect(edges)
     bound = edges[y:y + h, x:x + w]
     return bound, (x,y)
@@ -194,22 +216,20 @@ def get_puzzles_from_masks(image, masks):
         puzzle_image = bound_puzzle(puzzle_image, mask)
         mask = bound_puzzle(mask * 255, mask)
         extracted_puzzle = ExtractedPuzzle(image=puzzle_image, mask=mask)
-
-
         puzzles.append(extracted_puzzle)
     puzzle_collection = PuzzleCollection(puzzles)
     return puzzle_collection
 
 
-def find_neighbours(angles, distance=5):
+def find_neighbours(values, distance=5):
     """
         groups values, which values are close to each other
         ex. [1,2,3,6,7,8,9] -> [[1,2,3],[6,7,8,9]]
     """
     result = []
 
-    for angle in angles:
-        subset = [r for r in angles if abs(r - angle) < distance]
+    for v in values:
+        subset = [r for r in values if abs(r - v) < distance]
         if subset not in result:
             result.append(subset)
     return result
@@ -237,9 +257,11 @@ if __name__ == '__main__':
     puzzle_collection = extract_puzzles(image, mask)
 
     for i, puzzle in enumerate(puzzle_collection.pieces):
+
         print(puzzle)
         puzzle_name = f"puzzle_{i}"
         image_processing.view_image(puzzle.get_preview(), title=puzzle_name)
+        #image_processing.view_image(puzzle.mask, title=f"{puzzle_name} mask")
         image_processing.save_image(f"extracted/{puzzle_name}.png", puzzle.image)
 
 

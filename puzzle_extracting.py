@@ -254,8 +254,8 @@ def extract_puzzles(image, mask):
 
 
 if __name__ == '__main__':
-    name = "good_one"
-    #name = "processed_photo"
+    #name = "bliss"
+    name = "processed_photo"
     path = f"results/{name}.png"
 
     image = image_processing.load_image(path)
@@ -268,7 +268,7 @@ if __name__ == '__main__':
         print(puzzle)
         puzzle_name = f"puzzle_{i}"
         image_processing.view_image(puzzle.get_preview(), title=puzzle_name)
-        image_processing.view_image(puzzle.mask, title=f"{puzzle_name} mask")
+        #image_processing.view_image(puzzle.mask, title=f"{puzzle_name} mask")
         image_processing.save_image(f"extracted/{puzzle_name}.png", puzzle.image)
 
 

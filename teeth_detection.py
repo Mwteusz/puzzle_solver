@@ -78,20 +78,27 @@ def convert_rgb_to_binary(pixel):
     return 255
 
 
-def is_there_hole_inside(vector, image):
-    """check if there is a hole inside the piece, by checking if there are 2 flips in the pixels on the vector line"""
-    center = (image.shape[1]//2, image.shape[0]//2)
-    point1 = move_towards(vector.point1, center, percentage=0.1)
-    point2 = move_towards(vector.point2, center, percentage=0.1)
+def remove_single_pixels(pixels):
+    result = []
+    for i in range(len(pixels)-1):
+        if pixels[i] == pixels[i+1]:
+            result.append(pixels[i])
+    result.append(pixels[-1])
+    return result
+
+
+def is_there_connection(vector,image,percentage=0.1):
+    center = (image.shape[1] // 2, image.shape[0] // 2)
+    point1 = move_towards(vector.point1, center, percentage=percentage)
+    point2 = move_towards(vector.point2, center, percentage=percentage)
 
     coords = bresenham.connect(point1, point2)
-    pixels = [convert_rgb_to_binary(image[coord[1],coord[0]]) for coord in coords]
-
-
+    pixels = [convert_rgb_to_binary(image[coord[1], coord[0]]) for coord in coords]
+    pixels = remove_single_pixels(pixels)
 
     amount = count_flips(pixels)
     if amount == 2:
-        #if np.unique(pixels, return_counts=True)[1][0] <= 2:
+        # if np.unique(pixels, return_counts=True)[1][0] <= 2:
         #    return False
         return True
     elif amount == 0:
@@ -107,7 +114,13 @@ def is_there_hole_inside(vector, image):
         raise Exception(f"There should be 2 flips or 0 flips, but found {amount}!!")
 
 
-def is_there_knob(vector, puzzle_image, mask):
+def is_there_knob(vector, image):
+    """check if there is a hole inside the piece, by checking if there are 2 flips in the pixels on the vector line"""
+    return is_there_connection(vector, image, percentage=-0.3)
+def is_there_hole_inside(vector, image):
+    """check if there is a hole inside the piece, by checking if there are 2 flips in the pixels on the vector line"""
+    return is_there_connection(vector, image, percentage=0.3)
+def _is_there_knob_old(vector, puzzle_image, mask):
     # outside knobs
     slices = get_image_slices(vector, puzzle_image)
     outside_mask = min(slices, key=lambda x: np.count_nonzero(x))
@@ -119,8 +132,6 @@ def is_there_knob(vector, puzzle_image, mask):
 
     if ratio > 0.05:
         return True
-
-
 class NotchType(Enum):
     NONE = 0,
     HOLE = 1,
@@ -139,16 +150,14 @@ def get_vectors_from_corners(corners):
 
 def get_teeth(puzzle_image, corners):
 
-
     vectors = get_vectors_from_corners(corners)
-
     edges_info = {}
 
     for type, vector in vectors.items():
 
         if is_there_hole_inside(vector, puzzle_image):
             notch_type = NotchType.HOLE
-        elif is_there_knob(vector, puzzle_image, puzzle_image):
+        elif is_there_knob(vector, puzzle_image):
             notch_type = NotchType.TOOTH
         else:
             notch_type = NotchType.NONE

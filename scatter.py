@@ -6,7 +6,7 @@ import numpy as np
 
 def is_coliding(puzzle, image, minimum_distance=1):
     #apply threshold
-    binary_puzzle = cv2.threshold(puzzle, 1, 255, cv2.THRESH_BINARY)[1]
+    binary_puzzle = cv2.threshold(puzzle, 0, 255, cv2.THRESH_BINARY)[1]
     binary_puzzle = cv2.dilate(binary_puzzle, np.ones((minimum_distance*2 + 1, minimum_distance*2 + 1), np.uint8), iterations=1)
 
     return np.any(binary_puzzle * image)
@@ -18,8 +18,6 @@ def scatter_pieces(size, pieces, minimum_distance=1):
     grid_size_x, grid_size_y = size
     result = np.zeros((grid_size_x, grid_size_y, 3), dtype=np.uint8)
     random.shuffle(pieces)
-
-
 
     for i, piece in enumerate(pieces):
         center = (piece.puzzle_image.shape[0]//2, piece.puzzle_image.shape[1]//2)

@@ -62,8 +62,8 @@ class ExtractedPuzzle:
         puzzle_image, mask = self.image, self.mask
         angles = []
         for angle in range(0, 360):
-            rotated_mask = rotate(mask * 255, angle)
-            num = num_of_edges(rotated_mask * 255)
+            rotated_mask = rotate(mask, angle)
+            num = num_of_edges(rotated_mask)
             if num > 1:
                 angles.append(angle)
         if len(angles) == 0:
@@ -128,10 +128,16 @@ class PuzzleCollection:
     def find_corners(self):
         """finds the corners of each puzzle"""
         for i, puzzle in enumerate(self.pieces):
-            if i != 0:
-                print("\r", end="")
-            print(f"finding corners in piece {i + 1} out of {len(self.pieces)}", end="")
-            puzzle.find_corners()
+            try:
+                if i != 0:
+                    print("\r", end="")
+                print(f"finding corners in piece {i + 1} out of {len(self.pieces)}", end="")
+                puzzle.find_corners()
+            except Exception as e:
+                print(f"Could not find corners in puzzle #{i}: {e}")
+                self.pieces.remove(puzzle)
+                print(f"removed puzzle {i}!!!!!")
+
         print("\n")
         return
 
@@ -248,8 +254,9 @@ def extract_puzzles(image, mask):
 
 
 if __name__ == '__main__':
-    path = "results/processed_photo.png"
-    #path = "results/generated.png"
+    name = "good_one"
+    #name = "processed_photo"
+    path = f"results/{name}.png"
 
     image = image_processing.load_image(path)
     mask = image_processing.load_image(path.replace(".", "_mask."))
@@ -261,7 +268,7 @@ if __name__ == '__main__':
         print(puzzle)
         puzzle_name = f"puzzle_{i}"
         image_processing.view_image(puzzle.get_preview(), title=puzzle_name)
-        #image_processing.view_image(puzzle.mask, title=f"{puzzle_name} mask")
+        image_processing.view_image(puzzle.mask, title=f"{puzzle_name} mask")
         image_processing.save_image(f"extracted/{puzzle_name}.png", puzzle.image)
 
 

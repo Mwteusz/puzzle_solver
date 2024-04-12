@@ -1,6 +1,5 @@
 import math
 import random
-import time
 
 import numpy as np
 import cv2
@@ -23,7 +22,7 @@ def draw_knob(piece, neighbour, circle_coords, radius:int,vector):
     knob_image = get_knob_from_neighbour(neighbour.original, circle_coords, radius)
     knob_image = image_processing.scroll_image(knob_image, (vector[1]*-piece.width, vector[0]*-piece.height))
 
-    print(piece.original.shape, knob_image.shape)
+    #print(piece.original.shape, knob_image.shape)
     piece_with_knob = cv2.bitwise_or(piece.puzzle_image, knob_image)
     return piece_with_knob
 
@@ -181,7 +180,7 @@ def create_nodes(puzzle_grid, grid_size_x, grid_size_y):
 
 def carve_knobs(all_edges):
     for edge in all_edges:
-        edge_nodes = edge.get_nodes()
+        edge_nodes = edge.get_nodes() #neighbouring nodes (pieces)
 
         random_piece = random.choice(edge_nodes)
         edge.set_hole(random_piece)
@@ -209,8 +208,17 @@ def replace_color(image, old_color, new_color):
     return result
 
 
+def remove_zeros_from_rgb(image):
+    new_colors = []
+    for color in cv2.split(image):
+        new_color = color.copy()
+        new_color[np.where(new_color == 0)] = 1
+        new_colors.append(new_color)
+    return cv2.merge(new_colors)
+
+
 def create_puzzles(image, puzzle_size):
-    image = replace_color(image, [0, 0, 0], [1, 1, 1])
+    image = remove_zeros_from_rgb(image)
     puzzle_grid = image_to_pieces(image, puzzle_size)
     grid_size_x, grid_size_y = puzzle_grid.shape
     print("grid size: ",grid_size_x, grid_size_y)
@@ -219,7 +227,7 @@ def create_puzzles(image, puzzle_size):
     all_edges = create_edges(nodes, grid_size_x, grid_size_y)
     carve_knobs(all_edges)
     pieces = get_pieces_from_graph(nodes)
-    save_puzzles(nodes, grid_size_x, grid_size_y)
+    #save_puzzles(nodes, grid_size_x, grid_size_y)
     return pieces, (grid_size_x, grid_size_y)
 
 
@@ -244,12 +252,15 @@ def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5):
 
 
 if __name__ == '__main__':
-    path = "input_photos/bliss.png"
-    scattered_puzzle, mask = image_to_puzzles(path, 3)
 
-    image_processing.save_image("results/generated.png", scattered_puzzle)
-    image_processing.save_image("results/generated_mask.png", mask)
-    image_processing.view_image(scattered_puzzle)
+    image_names = ["bliss", "coolimage","dom","dywan","good_one","gorawino2","lake"]
+    for name in image_names:
+        path = f"input_photos/{name}.png"
+        scattered_puzzle, mask = image_to_puzzles(path, 3)
+
+        image_processing.save_image(f"results/{name}.png", scattered_puzzle)
+        image_processing.save_image(f"results/{name}_mask.png", mask)
+        #image_processing.view_image(scattered_puzzle)
 
 
 

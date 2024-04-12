@@ -87,23 +87,34 @@ def is_there_hole_inside(vector, image):
     coords = bresenham.connect(point1, point2)
     pixels = [convert_rgb_to_binary(image[coord[1],coord[0]]) for coord in coords]
 
-    # preview = draw_circle(image, point1, 3, (0, 0, 255))
-    # preview = draw_circle(preview, point2, 3, (0, 0, 255))
-    # preview = cv2.line(preview, point1, point2, (0, 0, 255), 1)
-    # print(pixels)
-    # image_processing.view_image(preview)
+
 
     amount = count_flips(pixels)
     if amount == 2:
-        if np.unique(pixels, return_counts=True)[1][0] <= 2: #TODO remove this hack. fix generator instead
-            return False
+        #if np.unique(pixels, return_counts=True)[1][0] <= 2:
+        #    return False
         return True
-    if amount == 0:
+    elif amount == 0:
         return False
-    raise Exception("There should be 2 flips or 0 flips")
+    else:
+        # error
+        preview = draw_circle(image, point1, 3, (0, 0, 255))
+        preview = draw_circle(preview, point2, 3, (0, 0, 255))
+        preview = cv2.line(preview, point1, point2, (0, 0, 255), 1)
+        print(pixels)
+        image_processing.view_image(preview)
+        image_processing.view_image(image)
+        raise Exception(f"There should be 2 flips or 0 flips, but found {amount}!!")
 
 
-def is_there_knob(knob_check, mask):
+def is_there_knob(vector, puzzle_image, mask):
+    # outside knobs
+    slices = get_image_slices(vector, puzzle_image)
+    outside_mask = min(slices, key=lambda x: np.count_nonzero(x))
+    # image_processing.view_image(outside_mask)
+    knob_check = cv2.bitwise_and(puzzle_image, outside_mask)
+    # image_processing.view_image(knob_check, title="knob_check")
+
     ratio = np.count_nonzero(knob_check) / np.count_nonzero(mask)
 
     if ratio > 0.05:
@@ -135,22 +146,14 @@ def get_teeth(puzzle_image, corners):
 
     for type, vector in vectors.items():
 
-        #outside knobs
-        slices = get_image_slices(vector, puzzle_image)
-        outside_mask = min(slices, key=lambda x: np.count_nonzero(x))
-        #image_processing.view_image(outside_mask)
-        knob_check = cv2.bitwise_and(puzzle_image, outside_mask)
-        #image_processing.view_image(knob_check, title="knob_check")
-
-
         if is_there_hole_inside(vector, puzzle_image):
-            result = NotchType.HOLE
-        elif is_there_knob(knob_check, outside_mask):
-            result = NotchType.TOOTH
+            notch_type = NotchType.HOLE
+        elif is_there_knob(vector, puzzle_image, puzzle_image):
+            notch_type = NotchType.TOOTH
         else:
-            result = NotchType.NONE
+            notch_type = NotchType.NONE
         #image_processing.view_image(knob_check,title = ratio)
-        edges_info[type] = result
+        edges_info[type] = notch_type
     #image_processing.view_image(puzel)
     return edges_info
 

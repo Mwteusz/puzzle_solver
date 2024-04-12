@@ -47,6 +47,9 @@ class Vector:
         b = y1 - a*x1
 
         return lambda x: a*x + b
+
+    def get_point_between(self):
+        return (self.point1[0] + self.point2[0]) // 2, (self.point1[1] + self.point2[1]) // 2
     def __str__(self):
         return f"Vector: {self.point1} -> {self.point2}"
 
@@ -80,11 +83,6 @@ def is_there_hole_inside(vector, image):
     point1 = move_towards(vector.point1, center, percentage=0.1)
     point2 = move_towards(vector.point2, center, percentage=0.1)
 
-    #display edges
-    #preview = draw_circle(image, point1, 5, (0,0,255))
-    #preview = draw_circle(preview, point2, 5, (0,0,255))
-    #image_processing.view_image(preview)
-
     coords = bresenham.connect(point1, point2)
     pixels = [convert_rgb_to_binary(image[coord[1],coord[0]]) for coord in coords]
 
@@ -111,30 +109,34 @@ class NotchType(Enum):
     TOOTH = 2
 
 
+def get_vectors_from_corners(corners):
+    vectors = {
+        "TOP": Vector(corners[0], corners[1]),
+        "RIGHT": Vector(corners[1], corners[3]),
+        "LEFT": Vector(corners[0], corners[2]),
+        "BOTTOM": Vector(corners[2], corners[3])
+    }
+    return vectors
 
 
-def get_teeth(puzel, corners):
+def get_teeth(puzzle_image, corners):
 
 
-    vectors = {}
-    vectors["TOP"] = Vector(corners[0], corners[1])
-    vectors["RIGHT"] = Vector(corners[1], corners[3])
-    vectors["LEFT"] = Vector(corners[0], corners[2])
-    vectors["BOTTOM"] = Vector(corners[2], corners[3])
+    vectors = get_vectors_from_corners(corners)
 
     edges_info = {}
 
     for type, vector in vectors.items():
 
         #outside knobs
-        slices = get_image_slices(vector, puzel)
+        slices = get_image_slices(vector, puzzle_image)
         outside_mask = min(slices, key=lambda x: np.count_nonzero(x))
         #image_processing.view_image(outside_mask)
-        knob_check = cv2.bitwise_and(puzel, outside_mask)
+        knob_check = cv2.bitwise_and(puzzle_image, outside_mask)
         #image_processing.view_image(knob_check, title="knob_check")
 
 
-        if is_there_hole_inside(vector, puzel):
+        if is_there_hole_inside(vector, puzzle_image):
             result = NotchType.HOLE
         elif is_there_knob(knob_check, outside_mask):
             result = NotchType.TOOTH

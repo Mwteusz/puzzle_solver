@@ -3,6 +3,8 @@ import random
 import cv2
 import numpy as np
 
+from progress_bar import ProgressBar
+
 
 def is_coliding(puzzle, image, minimum_distance=1):
     #apply threshold
@@ -19,7 +21,9 @@ def scatter_pieces(size, pieces, minimum_distance=1):
     result = np.zeros((grid_size_x, grid_size_y, 3), dtype=np.uint8)
     random.shuffle(pieces)
 
+    progress_bar = ProgressBar(len(pieces), "scattering pieces")
     for i, piece in enumerate(pieces):
+        progress_bar.update()
         center = (piece.puzzle_image.shape[0]//2, piece.puzzle_image.shape[1]//2)
         angle = random.randint(0, 359)
         rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
@@ -35,6 +39,6 @@ def scatter_pieces(size, pieces, minimum_distance=1):
             puzzle_on_background[random_position[1]:random_position[1] + rotated_image.shape[0],    random_position[0]:random_position[0] + rotated_image.shape[1]] = rotated_image
 
         result += puzzle_on_background
-        print(f"scattered piece {i+1}/{len(pieces)}")
+    progress_bar.conclude()
 
     return result

@@ -148,7 +148,7 @@ def get_vectors_from_corners(corners):
     return vectors
 
 
-def get_teeth(puzzle_image, corners):
+def get_teeth(puzzle_image, corners): #TODO puzzle_image -> mask
 
     vectors = get_vectors_from_corners(corners)
     edges_info = {}

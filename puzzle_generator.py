@@ -233,10 +233,12 @@ def create_puzzles(image, puzzle_size):
 
 
 
-def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5):
-
-    image = image_processing.load_image(path)
+def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5, image = None):
+    if image is None:
+        image = image_processing.load_image(path)
     puzzle_size = image.shape[0] // vertical_puzzle_size
+    if puzzle_size <= 70:
+        raise ValueError(f"Puzzles sized at {puzzle_size}x{puzzle_size} are too small. Decrease the vertical_puzzle_size parameter or scale up the image.")
 
     pieces, grid = create_puzzles(image, puzzle_size)
 

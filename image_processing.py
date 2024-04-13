@@ -10,18 +10,34 @@ def threshold(image, threshold):
 
     return binary_image
 
-def view_image(image, title=None):
-    image_shape = image.shape
-    #print("viewing image")
-    #fit image to screen
-    if image.shape[0] >= 1080 or image.shape[1] >= 1920:
-        max_size = max(image.shape[0], image.shape[1])
-        scale = 1080 / max_size
-        new_size = (int(image.shape[1] * scale), int(image.shape[0] * scale))
-        image = cv2.resize(image, new_size)
+def closest_multiple(lower_bound, x):
+    m = 1
+    while x < lower_bound:
+        x += lower_bound
+        m += 1
+    return m
+
+lower_bound, upper_bound = 200, 1000
+def view_image(image, title=None, fit_to_screen=True):
+    final_title = f"s={image.shape[:2]}"
+    if fit_to_screen:
+        if image.shape[0] >= upper_bound or image.shape[1] >= upper_bound:
+            scale = upper_bound / max(image.shape[0], image.shape[1])
+            new_size = (int(image.shape[1]*scale), int(image.shape[0]*scale))
+            image = cv2.resize(image, new_size)
+            final_title += f" ({scale:.2f}x scale)"
+        elif image.shape[0] <= lower_bound or image.shape[1] <= lower_bound:
+            min_size = min(image.shape[0], image.shape[1])
+            max_size = max(image.shape[0], image.shape[1])
+            scale = closest_multiple(lower_bound, min_size)
+            a, b = min_size * scale, max_size * scale
+            new_size = (a,b) if image.shape[0] > image.shape[1] else (b,a)
+            image = cv2.resize(image, new_size, interpolation=cv2.INTER_NEAREST)
+            final_title += f" ({scale}x scale)"
+
     if title is not None:
-        title = f"{title} shape = {image_shape}"
-    cv2.imshow(title, image)
+        final_title = f"[{title}] {final_title}"
+    cv2.imshow(final_title, image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
@@ -68,3 +84,21 @@ def scroll_image(knob_image, vector):
     new_image = np.zeros_like(knob_image)
     new_image[max(0, -x):min(height, height - x), max(0, -y):min(width, width - y)] = knob_image[max(0, x):min(height, height + x), max(0, y):min(width, width + y)]
     return new_image
+
+
+def square(image):
+    height, width = image.shape[:2]
+    a = max(height, width)
+    new_image = np.zeros((a, a, 3), dtype=np.uint8)
+    new_image[:height, :width] = image
+    return new_image
+
+
+
+def put_text(image, text, point, font, param2, color, width, aa):
+    text_width, text_height = cv2.getTextSize(text, font, param2, width)[0]
+    point = (point[0] - text_width // 2, point[1] + text_height // 2)
+    cv2.putText(image, text, point, font, param2, color, width, aa)
+
+
+

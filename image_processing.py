@@ -95,7 +95,7 @@ def square(image):
 
 
 
-def put_text(image, text, point, font, param2, color, width, aa):
+def put_text(image, text, point, color=(255,255,255), width=1, font=cv2.FONT_HERSHEY_SIMPLEX, param2=0.5, aa=cv2.LINE_AA):
     text_width, text_height = cv2.getTextSize(text, font, param2, width)[0]
     point = (point[0] - text_width // 2, point[1] + text_height // 2)
     cv2.putText(image, text, point, font, param2, color, width, aa)

@@ -19,3 +19,6 @@ class ProgressBar:
 
     def conclude(self):
         print()
+
+    def print_info(self, info):
+        print(f" --{info}--")

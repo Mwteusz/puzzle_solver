@@ -76,15 +76,12 @@ class ExtractedPuzzle:
             raise Exception(f"4 corners should be found, but found: {len(self.corners)}")
 
     def align_to_grid(self):
-        puzzle_image, mask = self.image, self.mask
-        #optimization, may not be needed
+        mask = self.mask
         w, h = mask.shape
-        if w > 100 or h > 100:
-            mask = cv2.resize(mask, (100, 100))
-        #
-        angles = []
-
+        if w > 100 or h > 100: #optimization, may not be needed
+            mask = cv2.resize(self.mask, (100, 100))
         enlarged = image_processing.enlarge_image(mask, 1.5) #cache enlarged image
+        angles = []
         for angle in range(0, 360):
             rotated_mask = rotate(enlarged, angle, enlarge=False) #enlarge=False,to prevent enlarging same image multiple times
             num = num_of_edges(rotated_mask)
@@ -99,7 +96,7 @@ class ExtractedPuzzle:
 
         self.mask = rotate(self.mask, median_element)
         self.mask = turn_into_binary(self.mask, 0.5)  # removes aliasing
-        self.image = rotate(puzzle_image, median_element)
+        self.image = rotate(self.image, median_element)
         self.corners = None  # corners need to be recalculated
         return
     def find_notches(self):
@@ -109,19 +106,19 @@ class ExtractedPuzzle:
         if self.corners is None or self.notches is None:
             raise Exception("corners or notches not found")
 
-        preview = self.image.copy()
+        image = self.image.copy()
         for corner in self.corners:
-            cv2.circle(preview, corner, 5, (255,0,0), -1)
+            cv2.circle(image, corner, 5, (255,0,0), -1)
 
         for type, vector in teeth_detection.get_vectors_from_corners(self.corners).items():
-            cv2.line(preview, vector.point1, vector.point2, (255,128,64), 1)
+            cv2.line(image, vector.point1, vector.point2, (255,128,64), 1)
             notch_type = self.notches[type]
             if notch_type is not NotchType.NONE:
                 name = notch_type.name.removeprefix("NotchType.").capitalize()
-                image_processing.put_text(preview, name, vector.get_point_between(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
-                image_processing.put_text(preview, name, vector.get_point_between(), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+                image_processing.put_text(image, name, vector.get_point_between(), (0, 0, 0), 2)
+                image_processing.put_text(image, name, vector.get_point_between(), (255, 255, 255), 1)
 
-        return preview
+        return image
 
 
 class PuzzleCollection:
@@ -155,9 +152,8 @@ class PuzzleCollection:
                 progress_bar.update()
                 puzzle.find_corners()
             except Exception as e:
-                print(f"Could not find corners in puzzle #{i}: {e}")
                 self.pieces.remove(puzzle)
-                print(f"removed puzzle {i}!!!!!")
+                progress_bar.print_info(f"Removed puzzle #{i}, no corners found: {e}")
         progress_bar.conclude()
         return
 
@@ -176,10 +172,16 @@ class PuzzleCollection:
 
     def get_preview(self):
         return images_to_image([puzzle.get_preview() for puzzle in self.pieces])
+    def save_puzzles(self, path):
+        self.for_each(lambda puzzle, i: image_processing.save_image(f"{path}_{i}.png", puzzle.image))
 
     def for_each(self, func):
-        for puzzle in self.pieces:
-            func(puzzle)
+        if len(func.__code__.co_varnames) == 1:
+            for puzzle in self.pieces:
+                func(puzzle)
+        else:
+            for i, puzzle in enumerate(self.pieces):
+                func(puzzle, i)
 
 
 def turn_into_binary(image, threshold=0.0):
@@ -311,9 +313,10 @@ if __name__ == '__main__':
     puzzle_collection = extract_puzzles(image, mask)
     timer.print("extracting puzzles")
 
-    puzzle_collection.for_each(lambda puzzle: image_processing.view_image(puzzle.get_preview(), title="puzzle preview"))
+    puzzle_collection.save_puzzles(f"extracted/{name}")
 
     big_preview = puzzle_collection.get_preview()
     image_processing.save_image(f"extracted/{name}_log.png", big_preview)
     image_processing.view_image(big_preview, title="log")
+    puzzle_collection.for_each(lambda puzzle: image_processing.view_image(puzzle.get_preview(), title="puzzle preview"))
 

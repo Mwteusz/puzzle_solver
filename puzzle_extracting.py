@@ -1,3 +1,6 @@
+import os
+from datetime import date
+import pickle
 import timer
 import cv2
 import numpy as np
@@ -38,8 +41,7 @@ def rotate_corners(corners, rotations, shape):
     corners_queue = Deque(corners)
     corners_queue.rotate(rotations)
     corners = list(corners_queue)
-
-    print("corners after rotation", corners)
+    #print("corners after rotation", corners)
     return corners
 
 
@@ -175,6 +177,11 @@ class ExtractedPuzzle:
         return rotated
 
 
+def list_files(directory):
+    return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+
+
+
 class PuzzleCollection:
     def __init__(self, pieces: [ExtractedPuzzle] = None):
         self.pieces = pieces
@@ -230,6 +237,11 @@ class PuzzleCollection:
     def save_puzzles(self, path):
         self.for_each(lambda puzzle, i: image_processing.save_image(f"{path}_{i}.png", puzzle.image))
 
+    def pickle(self, path=None):
+        path = f"pickles/{date.today()}.pickle" if path is None else path
+        with open(path, "wb") as file:
+            pickle.dump(self, file)
+
     def for_each(self, func):
         if len(func.__code__.co_varnames) == 1:
             for puzzle in self.pieces:
@@ -237,6 +249,13 @@ class PuzzleCollection:
         else:
             for i, puzzle in enumerate(self.pieces):
                 func(puzzle, i)
+
+    @classmethod
+    def unpickle(cls):
+        latest = sorted(list_files("pickles"))[-1]
+        path = f"pickles/{latest}"
+        with open(path, "rb") as file:
+            return pickle.load(file)
 
 
 def turn_into_binary(image, threshold=0.0):
@@ -349,7 +368,7 @@ if __name__ == '__main__':
     puzzle_collection = extract_puzzles(image, mask)
     timer.print("extracting puzzles")
 
-    puzzle_collection.save_puzzles(f"extracted/{name}")
+    puzzle_collection.pickle()
 
     big_preview = puzzle_collection.get_preview()
     image_processing.save_image(f"extracted/{name}_log.png", big_preview)

@@ -57,9 +57,11 @@ def get_opposite_edge(edge):
 
 
 def place_image_in_image(background, image, point, do_xor=True):
+    image = image if len(image.shape) == 2 else image[:, :, 0] #strip the 3rd dimension if it exists TODO remove this
     shape = image.shape
     start_x, start_y = point
     if do_xor is True:
+        print("wtf", background.shape, image.shape)
         background[start_y:start_y + shape[0], start_x:start_x + shape[1]] = np.bitwise_xor(background[start_y:start_y + shape[0], start_x:start_x + shape[1]], image)
     else:
         background[start_y:start_y + shape[0], start_x:start_x + shape[1]] += image
@@ -75,8 +77,7 @@ def get_mask_xor_ratio(puzzle1, edge_type1, puzzle2, edge_type2) -> (float, np.n
             output_img (np.ndarray): The processed output image after comparison or modification.
                 This image displays connected pieces as form of visualization.
     """
-    shape1 = puzzle1.image.shape[:2]
-    shape2 = puzzle2.image.shape[:2]
+    shape1, shape2 = puzzle1.mask.shape, puzzle2.mask.shape
     image_shape = shape1[0] + shape2[0], shape1[1] + shape2[1]
     output_img = np.zeros(image_shape, dtype=np.uint8)
     vector1 = get_vectors_from_corners(puzzle1.corners)[edge_type1]
@@ -89,7 +90,7 @@ def get_mask_xor_ratio(puzzle1, edge_type1, puzzle2, edge_type2) -> (float, np.n
     white_area_xor = np.count_nonzero(output_img)
     similarity = white_area_xor / white_area
     length_similarity = 1 - abs(vector1.distance() - vector2.distance()) / max(vector1.distance(), vector2.distance())
-    print(f"similarity = {similarity}, length_similarity = {length_similarity}")
+    #print(f"similarity = {similarity}, length_similarity = {length_similarity}")
     return similarity, length_similarity, output_img
 
 
@@ -137,36 +138,32 @@ def flat_sides_match(puzzle1, edge1, puzzle2, edge2):
     return True
 
 
-
-
-
-
-
 def connect_puzzles(puzzle1: ExtractedPuzzle, edge1: str, puzzle2: ExtractedPuzzle, edge2: str) -> (float, np.ndarray):
-    """connects two puzzles by their edges
-    :returns ratio of white area in xor of masks and the xor of masks
-    or 0 and None if the connection is IMPOSSIBLE"""
+
+    #if not is_connection_possible(puzzle1, edge1, puzzle2, edge2): #should be checked before calling this function
+    #    raise ValueError("connection is impossible!!")
 
     rotations = number_of_rotations(edge1, edge2)
-    #print("rotations needed: ", rotations)
+    puzzle1.rotate(rotations)
+    edge1 = get_opposite_edge(edge2)
+    #notch1 = puzzle1.get_notch(edge1)
+    #image_processing.view_image(puzzle1.get_preview(), edge1)
+    #if not notch1.does_match(notch2):
+    #    raise ValueError(f"cannot connect {notch1} with {notch2}!! 2nd time!!")
+    return get_mask_xor_ratio(puzzle1, edge1, puzzle2, edge2)
+
+
+def is_connection_possible(puzzle1, edge1, puzzle2, edge2):
+    """checks if the notches match and if the flat sides are correct"""
     notch1 = puzzle1.get_notch(edge1)
     notch2 = puzzle2.get_notch(edge2)
     if not notch1.does_match(notch2):
-        raise ValueError(f"cannot connect {notch1} with {notch2}!!")
-
+        print(f"cannot connect {notch1} with {notch2}!!")
+        return False
     if not flat_sides_match(puzzle1, edge1, puzzle2, edge2):
-        raise ValueError(f"flat sides are wrong!!")
-
-
-    puzzle1.rotate(rotations)
-    edge1 = get_opposite_edge(edge2)
-    notch1 = puzzle1.get_notch(edge1)
-    #image_processing.view_image(puzzle1.get_preview(), edge1)
-
-    if not notch1.does_match(notch2):
-        raise ValueError(f"cannot connect {notch1} with {notch2}!! 2nd time!!")
-    return get_mask_xor_ratio(puzzle1, edge1, puzzle2, edge2)
-
+        print(f"flat sides are wrong!!")
+        return False
+    return True
 
 
 def test_connect_puzzles(piece_indexes, edges):
@@ -175,23 +172,34 @@ def test_connect_puzzles(piece_indexes, edges):
     edge1, edge2 = edges
     print("edges: ", edge1, edge2)
 
-    pair = image_processing.images_to_image([puzzle1.get_preview(), puzzle2.get_preview()])
-    image_processing.view_image(pair, "pair")
 
-    match_index, edges_similarity, connected_preview = connect_puzzles(puzzle1, edge1, puzzle2, edge2)
-    image_processing.view_image(connected_preview, f"match {match_index}")
 
-if __name__ == '__main__2':
+    if not is_connection_possible(puzzle1, edge1, puzzle2, edge2):
+        raise ValueError("connection is impossible!!")
+
+    pair = image_processing.images_to_image([puzzle.get_preview() for puzzle in [puzzle1, puzzle2]])
+    similarity, length_similarity, output_img = connect_puzzles(puzzle1, edge1, puzzle2, edge2)
+    return similarity, length_similarity, output_img, pair
+
+
+if __name__ == '__main__':
     edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
     while True:
         try:
-            test_connect_puzzles(random.sample(range(30), 2), (random.choice(edges),random.choice(edges)))
+            similarity, length_similarity, output_img, pair = test_connect_puzzles(random.sample(range(30), 2), (random.choice(edges),random.choice(edges)))
+            print(f"similarity = {similarity}, length_similarity = {length_similarity}")
+            image_processing.view_image(pair, "pair")
+            image_processing.view_image(output_img, "output")
         except ValueError as e:
             print(f"\tError: {e}")
 
-if __name__ == '__main__':
+if __name__ == '__main__2':
     try:
-        test_connect_puzzles((6,0), ("TOP", "TOP"))
+        similarity, length_similarity, output_img, pair = test_connect_puzzles((6,0), ("TOP", "TOP"))
+        print(f"similarity = {similarity}, length_similarity = {length_similarity}")
+
+        image_processing.view_image(pair, "pair")
+        image_processing.view_image(output_img, "output")
     except ValueError as e:
         print(f"\tError: {e}")
 

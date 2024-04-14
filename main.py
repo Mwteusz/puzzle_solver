@@ -2,7 +2,7 @@ import image_processing
 import puzzle_extracting
 import puzzle_generator
 
-image = image_processing.load_image("input_photos/good_one.png")
+image = image_processing.load_image("input_photos/bliss.png")
 image_processing.view_image(image, "original image")
 
 puzzles, mask = puzzle_generator.image_to_puzzles(image=image, vertical_puzzle_size=5)

@@ -5,13 +5,54 @@ import image_processing
 import teeth_detection
 from progress_bar import ProgressBar
 from teeth_detection import NotchType
-
+from collections import deque as Deque
 
 def view_corners(image, corners):
     preview = image.copy()
     for corner in corners:
         cv2.circle(preview, corner, 5, (255, 0, 0), -1)
     image_processing.view_image(preview, title="corners")
+
+
+def rotate_point_90(point, rotations):
+    rotations = rotations % 4
+    rotations = 4 - rotations
+    x, y = point
+    for i in range(rotations):
+        x, y = y, -x
+    return x, y
+
+
+def rotate_corners(corners, rotations, shape):
+    rotations = rotations % 4
+    corners = [rotate_point_90(corner, rotations) for corner in corners]
+    v = (0, 0)
+    if rotations == 3:
+        v = (0, shape[0])
+    elif rotations == 2:
+        v = (shape[1], shape[0])
+    elif rotations == 1:
+        v = (shape[1], 0)
+
+    corners = [(corner[0] + v[0], corner[1] + v[1]) for corner in corners]
+    corners_queue = Deque(corners)
+    corners_queue.rotate(rotations)
+    corners = list(corners_queue)
+
+    print("corners after rotation", corners)
+    return corners
+
+
+def shift_notches(notches, rotations):
+    rotations = rotations % 4
+    rotations = rotations % 4
+    new_notches = {}
+    for type, notch in notches.items():
+        new_type = type
+        for i in range(rotations):
+            new_type = teeth_detection.get_next_type(new_type)
+        new_notches[new_type] = notch
+    return new_notches
 
 
 class ExtractedPuzzle:
@@ -27,19 +68,25 @@ class ExtractedPuzzle:
             str += f"{type}\t {result}\n"
         return str
 
-    def rotate(self, direction):
-        """ direction means 'left' or 'right' """
-        #TODO
-        #rotate image,
-        #move the notches over,
-        #done, return None
-        pass
+    def rotate(self, rotations):
+        """ rotations means 90 degree rotations, 1 rotation = 90 degrees, 2 rotations = 180 degrees, etc. """
+        #print("rotating by", rotations)
+        rotations = rotations % 4
+        self.image = rotate_90(self.image, rotations)
+        self.mask = rotate_90(self.mask, rotations)
+        self.corners = rotate_corners(self.corners, rotations, self.image.shape[:2])
+        self.notches = shift_notches(self.notches, rotations)
+
+    def deep_copy(self):
+        new_corners = [(corner[0], corner[1]) for corner in self.corners]
+        return ExtractedPuzzle(notches=self.notches.copy(), image=self.image.copy(), mask=self.mask.copy(), corners=new_corners)
+
 
     def find_corners(self):
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         edges = cv2.Canny(self.mask, 10, 200)
         edges = cv2.morphologyEx(edges, cv2.MORPH_DILATE, kernel)
-        edges, point = bound_image(edges)
+        edges, point = image_processing.bound_image(edges)
         edges = edges // 255
         corners = []
         y = 0
@@ -66,7 +113,7 @@ class ExtractedPuzzle:
                 field = min(abs(a1[0] - a2[0]), abs(b1[0] - b2[0])) * abs(a1[1] - b2[1])
                 if field > max_field:
                     max_field = field
-                    best_corners = [a1, a2, b1, b2]
+                    best_corners = [a1, a2, b2, b1]
 
         self.corners = [(corner[0] + point[0], corner[1] + point[1]) for corner in best_corners]
 
@@ -101,6 +148,8 @@ class ExtractedPuzzle:
         return
     def find_notches(self):
         self.notches = teeth_detection.get_teeth(self.image, self.corners)
+    def get_notch(self, type):
+        return self.notches[type]
 
     def get_preview(self):
         if self.corners is None or self.notches is None:
@@ -115,10 +164,15 @@ class ExtractedPuzzle:
             notch_type = self.notches[type]
             if notch_type is not NotchType.NONE:
                 name = notch_type.name.removeprefix("NotchType.").capitalize()
-                image_processing.put_text(image, name, vector.get_point_between(), (0, 0, 0), 2)
-                image_processing.put_text(image, name, vector.get_point_between(), (255, 255, 255), 1)
+                image_processing.put_text(image, name, vector.get_middle(), (0, 0, 0), 2)
+                image_processing.put_text(image, name, vector.get_middle(), (255, 255, 255), 1)
 
         return image
+
+    def get_rotated(self, rotations):
+        rotated = self.deep_copy()
+        rotated.rotate(rotations)
+        return rotated
 
 
 class PuzzleCollection:
@@ -154,6 +208,7 @@ class PuzzleCollection:
             except Exception as e:
                 self.pieces.remove(puzzle)
                 progress_bar.print_info(f"Removed puzzle #{i}, no corners found: {e}")
+                image_processing.view_image(puzzle.image, title="puzzle")
         progress_bar.conclude()
         return
 
@@ -171,7 +226,7 @@ class PuzzleCollection:
         return str
 
     def get_preview(self):
-        return images_to_image([puzzle.get_preview() for puzzle in self.pieces])
+        return image_processing.images_to_image([puzzle.get_preview() for puzzle in self.pieces])
     def save_puzzles(self, path):
         self.for_each(lambda puzzle, i: image_processing.save_image(f"{path}_{i}.png", puzzle.image))
 
@@ -221,15 +276,15 @@ def rotate(image, angle, enlarge=True):
     rotated_image = cv2.warpAffine(image,rotation_matrix, (width,height))
     return rotated_image
 
+def rotate_90(image, rotations):
+    rotations = 4 - rotations #convert clockwise to counterclockwise
+    return np.rot90(image, rotations)
 
-def bound_image(edges):
-    x, y, w, h = cv2.boundingRect(edges)
-    bound = edges[y:y + h, x:x + w]
-    return bound, (x,y)
 
-def num_of_edges(image):
-    edges = cv2.Canny(image, 10, 200)
-    bounded, _ = bound_image(edges)
+
+def num_of_edges(mask):
+    edges = cv2.Canny(mask, 10, 200)
+    bounded, _ = image_processing.bound_image(edges)
     edges = bounded//255
     num = 0
     for line in edges:
@@ -239,9 +294,6 @@ def num_of_edges(image):
             if counts[1] > 0.3 * counts[0]:
                 num += 1
     return num
-
-
-
 
 
 def get_puzzles_from_masks(image, masks):
@@ -284,26 +336,10 @@ def extract_puzzles(image, mask):
 
 
 
-def images_to_image(images):
-    images = [cv2.resize(image_processing.square(image), (200, 200)) for image in images]
-    size = int(np.ceil(np.sqrt(len(images))))
-    image_size = images[0].shape[0]
-    image_array = np.zeros((image_size*size, image_size*size,3), dtype=np.uint8)
-    for i, image in enumerate(images):
-        x = i % size
-        y = i // size
-        start_x = x * image_size
-        start_y = y * image_size
-        image_array[start_y:start_y+image_size, start_x:start_x+image_size] = image
-    return image_array
-
-
-
-
 
 if __name__ == '__main__':
-    #name = "bliss"
-    name = "processed_photo"
+    name = "bliss"
+    #name = "processed_photo"
     path = f"results/{name}.png"
 
     image = image_processing.load_image(path)

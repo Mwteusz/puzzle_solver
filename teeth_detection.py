@@ -48,8 +48,10 @@ class Vector:
 
         return lambda x: a*x + b
 
-    def get_point_between(self):
+    def get_middle(self):
         return (self.point1[0] + self.point2[0]) // 2, (self.point1[1] + self.point2[1]) // 2
+    def distance(self):
+        return np.sqrt((self.point1[0] - self.point2[0])**2 + (self.point1[1] - self.point2[1])**2)
     def __str__(self):
         return f"Vector: {self.point1} -> {self.point2}"
 
@@ -136,14 +138,19 @@ class NotchType(Enum):
     NONE = 0,
     HOLE = 1,
     TOOTH = 2
+    def does_match(self, other):
+        notches = (self, other)
+        return NotchType.HOLE in notches and NotchType.TOOTH in notches
+    def __str__(self):
+        return self.name
 
 
 def get_vectors_from_corners(corners):
     vectors = {
         "TOP": Vector(corners[0], corners[1]),
-        "RIGHT": Vector(corners[1], corners[3]),
-        "LEFT": Vector(corners[0], corners[2]),
-        "BOTTOM": Vector(corners[2], corners[3])
+        "RIGHT": Vector(corners[1], corners[2]),
+        "BOTTOM": Vector(corners[2], corners[3]),
+        "LEFT": Vector(corners[3], corners[0])
     }
     return vectors
 
@@ -185,6 +192,11 @@ if __name__ == '__main__':
     image_processing.view_image(puzzle_image)
 
 
-
-
-
+def get_next_type(new_type):
+    types = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
+    index = types.index(new_type)
+    return types[(index + 1) % 4]
+def get_previous_type(new_type):
+    types = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
+    index = types.index(new_type)
+    return types[(index - 1) % 4]

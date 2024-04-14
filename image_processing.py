@@ -19,6 +19,8 @@ def closest_multiple(lower_bound, x):
 
 lower_bound, upper_bound = 200, 1000
 def view_image(image, title=None, fit_to_screen=True):
+    if image is None:
+        raise ValueError("image is None")
     final_title = f"s={image.shape[:2]}"
     if fit_to_screen:
         if image.shape[0] >= upper_bound or image.shape[1] >= upper_bound:
@@ -101,4 +103,23 @@ def put_text(image, text, point, color=(255,255,255), width=1, font=cv2.FONT_HER
     cv2.putText(image, text, point, font, param2, color, width, aa)
 
 
+def bound_image(edges):
+    x, y, w, h = cv2.boundingRect(edges)
+    bound = edges[y:y + h, x:x + w]
+    return bound, (x,y)
 
+
+
+
+def images_to_image(images):
+    images = [cv2.resize(square(image), (200, 200)) for image in images]
+    size = int(np.ceil(np.sqrt(len(images))))
+    image_size = images[0].shape[0]
+    image_array = np.zeros((image_size*size, image_size*size,3), dtype=np.uint8)
+    for i, image in enumerate(images):
+        x = i % size
+        y = i // size
+        start_x = x * image_size
+        start_y = y * image_size
+        image_array[start_y:start_y+image_size, start_x:start_x+image_size] = image
+    return image_array

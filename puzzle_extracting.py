@@ -9,6 +9,7 @@ import teeth_detection
 from progress_bar import ProgressBar
 from teeth_detection import NotchType
 from collections import deque as Deque
+from functools import reduce
 
 def view_corners(image, corners):
     preview = image.copy()
@@ -256,6 +257,14 @@ class PuzzleCollection:
         path = f"pickles/{latest}"
         with open(path, "rb") as file:
             return pickle.load(file)
+
+    def partition_by_notch_type(self, notch_type: NotchType):
+        """Returns 2 Collections that contains copies of puzzles (First - desired notch type, Second - the rest)"""
+        partition = reduce(
+            lambda state, puzzle: state[notch_type in puzzle.notches.values()].append(puzzle.deep_copy())
+                                  or state, self.pieces, ([], []))
+
+        return PuzzleCollection(partition[1]), PuzzleCollection(partition[0])
 
 
 def turn_into_binary(image, threshold=0.0):

@@ -143,22 +143,24 @@ class Evolution:
         self.chromosomes.sort(key=fitFun, reverse = True)
 
 
-
-puzzle_collection = PuzzleCollection.unpickle()
-filtered, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
-
-num_of_chromosomes = 100
-num_of_genes = len(filtered.pieces)
-
-# cities = [i for i in range(25)]
-
-# points = [(119, 38), (37, 38), (197, 55), (85, 165), (12, 50), (100, 53), (81, 142), (121, 137), (85, 145),
-#          (80, 197), (91, 176), (106, 55), (123, 57), (40, 81), (78, 125), (190, 46), (187, 40), (37, 107),
-#          (17, 11), (67, 56), (78, 133), (87, 23), (184, 197), (111, 12), (66, 178)]
+if __name__ == '__main__':
 
 
-Ev = Evolution(num_of_chromosomes, num_of_genes, 0.01, 0.2)
-for it in tqdm(range(1000)):
-    Ev.iteration()
+    puzzle_collection = PuzzleCollection.unpickle()
+    filtered, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
 
-print(fitFun(Ev.chromosomes[-1]))
+    num_of_chromosomes = 100
+    num_of_genes = len(filtered.pieces)
+
+    # cities = [i for i in range(25)]
+
+    # points = [(119, 38), (37, 38), (197, 55), (85, 165), (12, 50), (100, 53), (81, 142), (121, 137), (85, 145),
+    #          (80, 197), (91, 176), (106, 55), (123, 57), (40, 81), (78, 125), (190, 46), (187, 40), (37, 107),
+    #          (17, 11), (67, 56), (78, 133), (87, 23), (184, 197), (111, 12), (66, 178)]
+
+
+    Ev = Evolution(num_of_chromosomes, num_of_genes, 0.01, 0.2)
+    for it in tqdm(range(1000)):
+        Ev.iteration()
+
+    print(fitFun(Ev.chromosomes[-1]))

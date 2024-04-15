@@ -91,7 +91,10 @@ def scroll_image(knob_image, vector):
 def square(image):
     height, width = image.shape[:2]
     a = max(height, width)
-    new_image = np.zeros((a, a, 3), dtype=np.uint8)
+    if len(image.shape) == 3:
+        new_image = np.zeros((a, a, 3), dtype=np.uint8)
+    else:
+        new_image = np.zeros((a, a), dtype=np.uint8)
     new_image[:height, :width] = image
     return new_image
 
@@ -115,7 +118,10 @@ def images_to_image(images):
     images = [cv2.resize(square(image), (200, 200)) for image in images]
     size = int(np.ceil(np.sqrt(len(images))))
     image_size = images[0].shape[0]
-    image_array = np.zeros((image_size*size, image_size*size,3), dtype=np.uint8)
+    if len(images[0].shape) == 3:
+        image_array = np.zeros((image_size*size, image_size*size, 3), dtype=np.uint8)
+    else:
+        image_array = np.zeros((image_size * size, image_size * size), dtype=np.uint8)
     for i, image in enumerate(images):
         x = i % size
         y = i // size

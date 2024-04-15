@@ -1,5 +1,5 @@
 import random
-
+from queue import PriorityQueue
 import connecting
 import image_processing
 import photo_processing
@@ -32,6 +32,11 @@ image_processing.save_image("results/the_grand_output.png", output)
 
 
 edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
+
+best = PriorityQueue()
+i = 0
+
+
 while True:
     edge1, edge2 = random.choice(edges), random.choice(edges)
     puzzle1_index, puzzle2_index = random.sample(range(30), 2)
@@ -39,10 +44,30 @@ while True:
     if not connecting.is_connection_possible(puzzle1, edge1, puzzle2, edge2):
         continue
     result = connecting.connect_puzzles(puzzle1, edge1, puzzle2, edge2)
-    similarity, length_similarity, output_img = result
-    print(f"puzzle1_index = {puzzle1_index}, puzzle2_index = {puzzle2_index}, edge1 = {edge1}, edge2 = {edge2}")
-    print(f"similarity = {similarity}, length_similarity = {length_similarity}")
-    image_processing.view_image(output_img, "output")
+    edge_similarity, length_similarity, xor_img, and_img = result
+    similarity = (edge_similarity + length_similarity)/2
+    print(f"similarity = {similarity}, indexes = {puzzle1_index, puzzle2_index}, edges = {edge1, edge2}")
+
+    queue_element = (puzzle1_index, puzzle2_index, edge1, edge2)
+    best.put((similarity, queue_element))
+    if len(best.queue) > 4:
+        best.get()
+
+    i+=1
+    if i % 1000 == 0:
+        print(f"iteration {i}")
+        for i, (similarity, queue_element) in enumerate(best.queue):
+            print(f"\t{i+1}. similarity = {similarity}, indexes = {queue_element[:2]}, edges = {queue_element[2:]}")
+        #view best
+        best_sim, best_element = best.queue[0]
+        index1, index2, edge1, edge2 = best_element
+        puzzle1, puzzle2 = puzzle_collection.pieces[index1], puzzle_collection.pieces[index2]
+        result = connecting.connect_puzzles(puzzle1, edge1, puzzle2, edge2)
+        edge_similarity, length_similarity, xor_img, and_img = result
+        print(f"best similarity = {best_sim}, indexes = {index1, index2}, edges = {edge1, edge2}")
+        preview = image_processing.images_to_image([xor_img, and_img])
+        image_processing.view_image(preview, "best preview")
+
 
 
 

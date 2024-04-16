@@ -59,11 +59,13 @@ def shift_notches(notches, rotations):
 
 
 class ExtractedPuzzle:
-    def __init__(self, notches: [NotchType] = None, image = None, mask = None ,corners = None):
+    def __init__(self, notches: [NotchType] = None, image = None, mask = None, corners = None, id=None):
         self.notches = notches
         self.image = image
         self.mask = mask
         self.corners = corners
+        self.id = id
+
 
     def __str__(self):
         str = ""
@@ -75,14 +77,17 @@ class ExtractedPuzzle:
         """ rotations means 90 degree rotations, 1 rotation = 90 degrees, 2 rotations = 180 degrees, etc. """
         #print("rotating by", rotations)
         rotations = rotations % 4
-        self.image = rotate_90(self.image, rotations)
+        if self.image is not None:
+            self.image = rotate_90(self.image, rotations)
         self.mask = rotate_90(self.mask, rotations)
-        self.corners = rotate_corners(self.corners, rotations, self.image.shape[:2])
+        self.corners = rotate_corners(self.corners, rotations, self.mask.shape[:2])
         self.notches = shift_notches(self.notches, rotations)
 
-    def deep_copy(self):
+    def deep_copy(self, copy_image=True):
+        """returns a deep copy of the object, if copy_image is True, the image is copied as well, otherwise it is None"""
         new_corners = [(corner[0], corner[1]) for corner in self.corners]
-        return ExtractedPuzzle(notches=self.notches.copy(), image=self.image.copy(), mask=self.mask.copy(), corners=new_corners)
+        image_copy = None if (copy_image is False or self.image is None) else self.image.copy()
+        return ExtractedPuzzle(notches=self.notches.copy(), image=image_copy, mask=self.mask.copy(), corners=new_corners, id=self.id)
 
 
     def find_corners(self):

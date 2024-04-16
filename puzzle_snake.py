@@ -30,7 +30,7 @@ def place_puzzle(background, puzzle, left_side, edge="LEFT"):
         next_edge = get_opposite_edge(edge)
     else:
         next_edge, _ = genetic_algorithm.edges_to_test(puzzle.notches)
-    print(next_edge)
+    #print(next_edge)
 
     next_connection_point = edges[next_edge].get_middle()
     next_connection_point = add_points(next_connection_point, image_start_pos)
@@ -77,8 +77,6 @@ def expand_left_top(background, image_start_pos):
 
 def get_snake_image(puzzles):
     """Place puzzles in a snake-like pattern. Used for edge pieces only!"""
-
-    np.random.shuffle(puzzles)
     width, height = 300, 300
     image = np.zeros((height, width, 3), dtype=np.uint8)
 

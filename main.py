@@ -2,7 +2,6 @@ import random
 from queue import PriorityQueue
 import connecting
 import image_processing
-import photo_processing
 import puzzle_extracting
 import puzzle_generator
 
@@ -12,7 +11,7 @@ import puzzle_generator
 #puzzles, mask = puzzle_generator.image_to_puzzles(image=image, vertical_puzzle_size=3)
 #image_processing.view_image(puzzles, "generated puzzle")
 
-load_pickle = True
+load_pickle = False
 
 
 if load_pickle is True:

@@ -88,15 +88,36 @@ def scroll_image(knob_image, vector):
     return new_image
 
 
-def square(image):
+def fit_square(image):
+    """Fits the image into a square, by adding black padding."""
     height, width = image.shape[:2]
     a = max(height, width)
-    if len(image.shape) == 3:
-        new_image = np.zeros((a, a, 3), dtype=np.uint8)
-    else:
+    if len(image.shape) == 2:
         new_image = np.zeros((a, a), dtype=np.uint8)
-    new_image[:height, :width] = image
+    else:
+        new_image = np.zeros((a, a, 3), dtype=np.uint8)
+    start_x = (a - width) // 2
+    start_y = (a - height) // 2
+    new_image[start_y:start_y + height, start_x:start_x + width] = image
     return new_image
+
+def crop_square(image, a):
+    """Crops the image to a square of size a. The center of the image is used as the center of the square."""
+    height, width = image.shape[:2]
+    center = (width / 2, height / 2)
+    result =  image[int(center[1]-a//2):int(center[1]+a//2), int(center[0]-a//2):int(center[0]+a//2)]
+    new_a = result.shape[0]
+    return result, new_a
+#def crop_square(image):
+#    height, width = image.shape[:2]
+#    sml, big = min(height, width), max(height, width)
+#    start = (big - sml) // 2
+#    end = start + sml
+#    if sml == height:
+#        result = image[:, start:end]
+#    else:
+#        result = image[start:end, :]
+#    return result
 
 
 
@@ -106,16 +127,19 @@ def put_text(image, text, point, color=(255,255,255), width=1, font=cv2.FONT_HER
     cv2.putText(image, text, point, font, param2, color, width, aa)
 
 
-def bound_image(edges):
-    x, y, w, h = cv2.boundingRect(edges)
-    bound = edges[y:y + h, x:x + w]
+def bound_image(image):
+    x, y, w, h = cv2.boundingRect(image)
+    bound = image[y:y + h, x:x + w]
     return bound, (x,y)
 
 
 
-
-def images_to_image(images):
-    images = [cv2.resize(square(image), (200, 200)) for image in images]
+def turn_binary_to_rgb(image):
+    if len(image.shape) == 2:
+        return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    return image
+def images_to_image(images, interpolation=cv2.INTER_NEAREST):
+    images = [cv2.resize(turn_binary_to_rgb(fit_square(image)), (200, 200), interpolation=interpolation) for image in images]
     size = int(np.ceil(np.sqrt(len(images))))
     image_size = images[0].shape[0]
     if len(images[0].shape) == 3:
@@ -129,3 +153,41 @@ def images_to_image(images):
         start_y = y * image_size
         image_array[start_y:start_y+image_size, start_x:start_x+image_size] = image
     return image_array
+
+
+def erode(mask, i):
+    kernel = np.ones((i, i), np.uint8)
+    return cv2.erode(mask, kernel, iterations=1)
+
+
+def get_cross(a,thickness=None):
+    thickness = int(a*0.33) if thickness is None else thickness
+    padding = int((a-thickness)//2)
+    """:returns a plus sign of size a"""
+    result = np.zeros((a, a), dtype=np.uint8)
+    start = padding
+    end = a - padding
+    result[start:end, :] = 255
+    result[:, start:end] = 255
+    return result
+
+
+def get_circle(a,r):
+    return cv2.circle(np.zeros((a,a), dtype=np.uint8), (a//2, a//2), r, 255, -1)
+
+def get_rhombus(a):
+    result = np.zeros((a, a), dtype=np.uint8)
+    corners =[ (a//2, 0), (a-1, a//2), (a//2, a-1), (0, a//2)]
+
+    cv2.fillPoly(result, [np.array(corners)], 255)
+    return result
+
+
+def add_border(image, padding, color=0):
+
+    a = image.shape[0]
+    b = image.shape[1]
+    image[0:padding, :] = color
+    image[:, 0:padding] = color
+    image[a-padding:, :] = color
+    image[:,b-padding:] = color

@@ -26,9 +26,10 @@ def scatter_pieces(size, pieces, minimum_distance=1):
         progress_bar.update()
         center = (piece.puzzle_image.shape[0]//2, piece.puzzle_image.shape[1]//2)
         angle = random.randint(0, 359)
-        rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+        #rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
 
-        rotated_image = cv2.warpAffine(piece.puzzle_image, rotation_matrix, piece.puzzle_image.shape[:2])
+        #rotated_image = cv2.warpAffine(piece.puzzle_image, rotation_matrix, piece.puzzle_image.shape[:2])
+        rotated_image = piece.puzzle_image
         puzzle_on_background = np.zeros_like(result)
 
         random_position = None

@@ -243,8 +243,9 @@ class PuzzleCollection:
     def save_puzzles(self, path):
         self.for_each(lambda puzzle, i: image_processing.save_image(f"{path}_{i}.png", puzzle.image))
 
-    def pickle(self, path=None):
-        path = f"pickles/{date.today()}.pickle" if path is None else path
+    def pickle(self, path=None, suffix=""):
+
+        path = f"pickles/{date.today()}{suffix}.pickle" if path is None else path
         with open(path, "wb") as file:
             pickle.dump(self, file)
 
@@ -257,10 +258,12 @@ class PuzzleCollection:
                 func(puzzle, i)
 
     @classmethod
-    def unpickle(cls):
-        latest = sorted(list_files("pickles"))[-1]
-        path = f"pickles/{latest}"
+    def unpickle(cls,name=None):
+        if name is None:
+            name = sorted(list_files("pickles"))[-1]
+        path = f"pickles/{name}"
         with open(path, "rb") as file:
+            print(f"unpickling {path}")
             return pickle.load(file)
 
     def partition_by_notch_type(self, notch_type: NotchType):

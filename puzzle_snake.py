@@ -1,3 +1,5 @@
+import cv2
+
 import genetic_algorithm
 import image_processing
 import numpy as np
@@ -5,7 +7,7 @@ import numpy as np
 from teeth_detection import NotchType
 from teeth_detection import get_vectors_from_corners
 from puzzle_extracting import PuzzleCollection
-from connecting import get_opposite_edge
+from matching_puzzles import get_opposite_edge
 
 def add_points(point1, point2):
     return point1[0] + point2[0], point1[1] + point2[1]
@@ -21,6 +23,9 @@ def place_puzzle(background, puzzle, left_side, edge="LEFT"):
 
     end_y = image_start_pos[1] + puzzle.image.shape[0]
     end_x = image_start_pos[0] + puzzle.image.shape[1]
+
+    if len(puzzle.mask.shape) == 2:
+        puzzle.mask = cv2.cvtColor(puzzle.mask, cv2.COLOR_GRAY2BGR)
     background[image_start_pos[1]:end_y, image_start_pos[0]:end_x] = np.where(puzzle.mask > 0, puzzle.image, background[image_start_pos[1]:end_y, image_start_pos[0]:end_x])
 
     #cv2.circle(background, (int(image_start_pos[0]), int(image_start_pos[1])), 3, (0, 255, 0), -1)
@@ -85,12 +90,12 @@ def get_snake_image(puzzles):
     for i, puzzle in enumerate(puzzles):
         image, connection_point, next_edge = place_puzzle(image, puzzle, connection_point, edge)
         edge = get_opposite_edge(next_edge)
-        #image_processing.view_image(image)
+        # image_processing.view_image(image)
     return image
 
 
 if __name__ == '__main__':
-    collection = PuzzleCollection.unpickle()
+    collection = PuzzleCollection.unpickle("2024-04-17processed_photo.pickle")
     pieces = collection.pieces
     #edge_pieces = collection.partition_by_notch_type(NotchType.NONE)[0].pieces
 

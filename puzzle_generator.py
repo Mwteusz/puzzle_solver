@@ -217,7 +217,8 @@ def remove_zeros_from_rgb(image):
     return cv2.merge(new_colors)
 
 
-def create_puzzles(image, puzzle_size):
+def create_puzzles(image, puzzle_size)->tuple[list[np.ndarray], tuple[int, int]]:
+    """:returns: list of piece images, grid size"""
     image = remove_zeros_from_rgb(image)
     puzzle_grid = image_to_pieces(image, puzzle_size)
     grid_size_x, grid_size_y = puzzle_grid.shape
@@ -227,45 +228,55 @@ def create_puzzles(image, puzzle_size):
     all_edges = create_edges(nodes, grid_size_x, grid_size_y)
     carve_knobs(all_edges)
     pieces = get_pieces_from_graph(nodes)
+    images = [piece.puzzle_image for piece in pieces]
     #save_puzzles(nodes, grid_size_x, grid_size_y)
-    return pieces, (grid_size_x, grid_size_y)
+    return images, (grid_size_x, grid_size_y)
 
 
 
 
-def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5, image = None):
+def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5, image = None, force=False) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """:returns: list of pieces, masks of pieces"""
     if image is None:
         image = image_processing.load_image(path)
     puzzle_size = image.shape[0] // vertical_puzzle_size
-    if puzzle_size <= 70:
+    if not force and puzzle_size <= 70:
         raise ValueError(f"Puzzles sized at {puzzle_size}x{puzzle_size} are too small. Decrease the vertical_puzzle_size parameter or scale up the image.")
 
     pieces, grid = create_puzzles(image, puzzle_size)
+    masks = [image_processing.threshold(piece, 0) for piece in pieces]
+
+    return pieces, masks
 
 
-    output_size = (image.shape[0]*2, image.shape[1]*2)
-
-    scattered_puzzle = scatter.scatter_pieces(output_size, pieces=pieces, minimum_distance=10)
-    scattered_puzzle_mask = image_processing.threshold(scattered_puzzle,0)
-
-    return scattered_puzzle, scattered_puzzle_mask
 
 
+#if __name__ == '__main__':
+#
+#    image_names = ["bliss", "coolimage","dom","dywan","good_one","gorawino2","lake"]
+#    for name in image_names:
+#        path = f"input_photos/{name}.png"
+#        image = image_processing.load_image(path)
+#        puzzle_images, masks = image_to_puzzles(vertical_puzzle_size=3, image=image)
+#
+#        output_size = (image.shape[0]*2, image.shape[1]*2)
+#        scattered_puzzle = scatter.scatter_pieces(output_size, pieces=puzzle_images, minimum_distance=10)
+#
+#        image_processing.save_image(f"results/{name}.png", scattered_puzzle)
+#        image_processing.save_image(f"results/{name}_mask.png", image_processing.threshold(scattered_puzzle,0))
+#
+#        image_processing.view_image(scattered_puzzle)
+#
 
 
 if __name__ == '__main__':
+    image = image_processing.load_image("input_photos/bliss.png")
+    puzzle_images, puzzle_masks = image_to_puzzles(image=image, vertical_puzzle_size=10, force=True)
+    preview = image_processing.images_to_image(puzzle_images)
+    image_processing.view_image(preview, "generated puzzle")
 
-    image_names = ["bliss", "coolimage","dom","dywan","good_one","gorawino2","lake"]
-    for name in image_names:
-        path = f"input_photos/{name}.png"
-        scattered_puzzle, mask = image_to_puzzles(path, 3)
-
-        image_processing.save_image(f"results/{name}.png", scattered_puzzle)
-        image_processing.save_image(f"results/{name}_mask.png", mask)
-        #image_processing.view_image(scattered_puzzle)
-
-
-
+    scattered_puzzle = scatter.scatter_pieces((image.shape[0] * 2, image.shape[1] * 2), pieces=puzzle_images, minimum_distance=10)
+    image_processing.view_image(scattered_puzzle, "scattered puzzle")
 
 
 

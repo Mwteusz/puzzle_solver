@@ -82,6 +82,7 @@ def expand_left_top(background, image_start_pos):
 
 def get_snake_image(puzzles):
     """Place puzzles in a snake-like pattern. Used for edge pieces only!"""
+
     width, height = 300, 300
     image = np.zeros((height, width, 3), dtype=np.uint8)
 

@@ -359,7 +359,8 @@ def find_neighbours(values, distance=5):
     return result
 
 
-def extract_puzzles(image, mask):
+def extract_puzzles(image, mask=None):
+    mask = image_processing.threshold(image, 0) if mask is None else mask
     print("extracting puzzles")
     masks = find_contours(mask)
     print(f"number of puzzles: {len(masks)}")
@@ -369,7 +370,11 @@ def extract_puzzles(image, mask):
     puzzle_collection.establish_notches()
 
     return puzzle_collection
-
+def images_to_puzzle_collection(puzzle_images, puzzle_masks):
+    pieces = []
+    for i, (image, mask) in enumerate(zip(puzzle_images, puzzle_masks)):
+        pieces.append(ExtractedPuzzle(image=image, mask=mask, id=i))
+    return PuzzleCollection(pieces)
 
 
 

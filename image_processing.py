@@ -191,3 +191,7 @@ def add_border(image, padding, color=0):
     image[:, 0:padding] = color
     image[a-padding:, :] = color
     image[:,b-padding:] = color
+
+
+def resize_image(image, scale, interpolation):
+    return cv2.resize(image, (0, 0), fx=scale, fy=scale, interpolation=interpolation)

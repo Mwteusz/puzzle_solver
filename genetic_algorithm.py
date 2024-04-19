@@ -13,7 +13,7 @@ from matching_puzzles import is_connection_possible, MatchException
 from matching_puzzles import connect_puzzles
 
 
-def edges_to_test(notches):
+def edges_to_test(notches: dict):
     """get sides to compare the next piece with"""
     types = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
     for type in types:

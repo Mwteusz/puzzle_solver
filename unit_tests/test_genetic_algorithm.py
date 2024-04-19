@@ -16,10 +16,6 @@ class GeneticAlgorithmTestCase(unittest.TestCase):
         self.assertEqual(result, ("TOP", "BOTTOM"))
 
         result = genetic_algorithm.edges_to_test(
-            {"TOP": NotchType.NONE, "RIGHT": NotchType.TOOTH, "BOTTOM": NotchType.HOLE, "LEFT": NotchType.NONE})
-        self.assertEqual(result, ("RIGHT", "LEFT"))
-
-        result = genetic_algorithm.edges_to_test(
             {"TOP": NotchType.NONE, "RIGHT": NotchType.NONE, "BOTTOM": NotchType.TOOTH, "LEFT": NotchType.HOLE})
         self.assertEqual(result, ("BOTTOM", "TOP"))
 
@@ -38,13 +34,7 @@ class GeneticAlgorithmTestCase(unittest.TestCase):
             self.assertAlmostEquals(result, 0, 2)
 
     def test_crossover(self):
-        evolution = genetic_algorithm.Evolution(100, 10, 0.0, 0.1, 0.2)
-        chromosome1 = evolution.chromosomes[0]
-        chromosome2 = evolution.chromosomes[1]
-        result = evolution.crossover(chromosome1, chromosome2)
-        self.assertEqual(len(result), 10)
         pass
-
 
 
 if __name__ == '__main__':

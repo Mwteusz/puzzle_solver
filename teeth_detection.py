@@ -130,7 +130,7 @@ def is_there_connection(vector,image, percentage):
 
 def is_there_knob(vector, image):
     """check if there is a hole inside the piece, by checking if there are 2 flips in the pixels on the vector line"""
-    return is_there_connection(vector, image, percentage=-0.2)
+    return is_there_connection(vector, image, percentage=-0.3)
 def is_there_hole_inside(vector, image):
     """check if there is a hole inside the piece, by checking if there are 2 flips in the pixels on the vector line"""
     return is_there_connection(vector, image, percentage=0.3)

@@ -26,6 +26,8 @@ def edges_to_test(notches: dict):
                 return get_next_type(type), get_previous_type(type)
 
 
+
+fit_cache = {}
 def fitFun(puzzles, print_fits=False):
     score = 0
 
@@ -34,9 +36,14 @@ def fitFun(puzzles, print_fits=False):
 
         edge1, edge2 = edges_to_test(piece.notches)
         try:
-            is_connection_possible(piece, edge1, next_piece, edge2)
-            similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, edge2)
-            add = (similarity + length_similarity) / 2
+            if (piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation) in fit_cache:
+                add = fit_cache[(piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation)]
+                #print("cached:",len(fit_cache))
+            else:
+                is_connection_possible(piece, edge1, next_piece, edge2)
+                similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, edge2)
+                add = (similarity + length_similarity) / 2
+                fit_cache[(piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation)] = add
         except MatchException:
             add = 0
 
@@ -202,12 +209,13 @@ if __name__ == '__main__':
     for it in tqdm(range(num_of_iterations)):
         evolution.iteration()
 
-        best_chromosome = evolution.get_best_chromosome()
-        best_fit = fitFun(best_chromosome)
+        if (it % 10 == 0):
+            best_chromosome = evolution.get_best_chromosome()
+            best_fit = fitFun(best_chromosome)
 
-        print(f" sum of fits: {evolution.get_sum_of_fits():.2f}", end=" ")
-        print(f"best fit: {best_fit}", end=" ")
-        print(f"piece ids: {[piece.id for piece in best_chromosome]}")
+            print(f" sum of fits: {evolution.get_sum_of_fits():.2f}", end=" ")
+            print(f"best fit: {best_fit}", end=" ")
+            print(f"piece ids: {[piece.id for piece in best_chromosome]}")
 
         if (it % 40 == 0) or (it == num_of_iterations - 1) or (best_fit < 1):
             apply_images_to_puzzles(best_chromosome)

@@ -5,8 +5,7 @@ import numpy as np
 import cv2
 import scatter
 import image_processing
-
-
+from puzzle_extracting import PuzzleCollection
 
 
 def get_knob_from_neighbour(neighbour_image, circle_coords, radius):
@@ -270,13 +269,15 @@ def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5, 
 
 
 if __name__ == '__main__':
-    image = image_processing.load_image("input_photos/bliss.png")
-    puzzle_images, puzzle_masks = image_to_puzzles(image=image, vertical_puzzle_size=10, force=True)
+    image = image_processing.load_image("input_photos/widzew.png")
+    puzzle_images, puzzle_masks = image_to_puzzles(image=image, vertical_puzzle_size=3, force=True)
     preview = image_processing.images_to_image(puzzle_images)
     image_processing.view_image(preview, "generated puzzle")
 
-    scattered_puzzle = scatter.scatter_pieces((image.shape[0] * 2, image.shape[1] * 2), pieces=puzzle_images, minimum_distance=10)
+    scattered_puzzle = scatter.scatter_pieces((image.shape[0] * 2, image.shape[1] * 2), pieces=puzzle_images, minimum_distance=10,rotate=False)
     image_processing.view_image(scattered_puzzle, "scattered puzzle")
+    image_processing.save_image("results/scattered_widzew_3x3.png", scattered_puzzle)
+    image_processing.save_image("results/scattered_widzew_3x3_mask.png", image_processing.threshold(scattered_puzzle, 0))
 
 
 

@@ -15,7 +15,7 @@ def is_coliding(puzzle, image, minimum_distance=1):
 
 
 
-def scatter_pieces(size, pieces,  minimum_distance=1):
+def scatter_pieces(size, pieces,  minimum_distance=1,rotate=True):
     print("scattering pieces")
     grid_size_x, grid_size_y = size
     result = np.zeros((grid_size_x, grid_size_y, 3), dtype=np.uint8)
@@ -26,8 +26,11 @@ def scatter_pieces(size, pieces,  minimum_distance=1):
         progress_bar.update()
         center = (piece.shape[0]//2, piece.shape[1]//2)
         angle = random.randint(0, 359)
-        rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated_image = cv2.warpAffine(piece, rotation_matrix, piece.shape[:2])
+        if rotate:
+            rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+            rotated_image = cv2.warpAffine(piece, rotation_matrix, piece.shape[:2])
+        else:
+            rotated_image = piece
         puzzle_on_background = np.zeros_like(result)
 
         random_position = None

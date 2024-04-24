@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 import image_processing
 import puzzle_snake
-from puzzle_extracting import PuzzleCollection
+from puzzle_extracting import ExtractedPuzzle, PuzzleCollection
 from teeth_detection import NotchType
 from teeth_detection import get_next_type
 from teeth_detection import get_previous_type
@@ -68,17 +68,20 @@ class Evolution:
     elitism_chance = 0.0
     mutation_rotate_chance = 0.0
 
-    def __init__(self, chromosomes, genes, mutation_rotate, mutation_swap, elitism):
+    def __init__(self, chromosomes, genes, mutation_rotate, mutation_swap, elitism, do_rotate=True):
         self.num_of_genes = genes
         self.num_of_chromosomes = chromosomes
         self.mutation_rotate_chance = mutation_rotate
         self.mutation_swap_chance = mutation_swap
         self.elitism_chance = elitism
+        self.rotate = do_rotate
 
-        # get_rotated(random.randint(0, 3))
 
         for i in range(num_of_chromosomes):
-            filtered_copy = [piece.deep_copy() for piece in filtered]
+            if do_rotate:
+                filtered_copy = [piece.get_rotated(random.randint(0, 3)) for piece in filtered]
+            else:
+                filtered_copy = [piece.deep_copy() for piece in filtered]
             random.shuffle(filtered_copy)
             self.chromosomes.append(filtered_copy)
 
@@ -123,22 +126,22 @@ class Evolution:
         a, b = random.sample(range(self.num_of_genes), 2)
         a, b = min(a, b), max(a, b)
 
-        slice1 = mother_ids[a:b]
-        son_ids = [id for id in father_ids if (id not in slice1)]
-        son_ids[a:a] = slice1
+        mother_slice = mother_ids[a:b]
+        son = [piece.deep_copy(False) for piece in father if (piece.id not in mother_slice)]
+        son[a:a] = [piece.deep_copy(False) for piece in mother if (piece.id in mother_slice)]
 
-        slice2 = father_ids[a:b]
-        daughter_ids = [id for id in mother_ids if (id not in slice2)]
-        daughter_ids[a:a] = slice2
-
-        son = [filtered[id].deep_copy() for id in son_ids]
-        daughter = [filtered[id].deep_copy() for id in daughter_ids]
+        father_slice = father_ids[a:b]
+        daughter = [piece.deep_copy(False) for piece in mother if (piece.id not in father_slice)]
+        daughter[a:a] = [piece.deep_copy(False) for piece in father if (piece.id in father_slice)]
 
         # print(f"---crossover---\n\t{a,b}\n\t{mother_ids}\n\t{father_ids}\n\t{son_ids}\n\t{daughter_ids}\n")
 
         return son, daughter
 
     def rotate_mutation(self, chromosomes, probability):
+        if not self.rotate:
+            return
+
         for chromosome in chromosomes:
             if random.random() < probability:
                 random_piece = random.choice(chromosome)
@@ -201,10 +204,15 @@ class Evolution:
         return result
 
 
+def apply_images_to_puzzles(puzzles):
+    for i, puzzle in enumerate(puzzles):
+        puzzle.image = filtered[puzzle.id].get_rotated(puzzle.rotation).image
+
+
 filtered = None
 if __name__ == '__main__':
 
-    puzzle_collection = PuzzleCollection.unpickle(name="2024-04-183x3.pickle")
+    puzzle_collection = PuzzleCollection.unpickle(name="2024-04-24_scattered_widzew_3x3_no_rotate.pickle")
     filtered, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
     filtered = filtered.pieces
     image_processing.view_image(puzzle_collection.get_preview())
@@ -215,7 +223,7 @@ if __name__ == '__main__':
     num_of_chromosomes = 100
     num_of_genes = len(filtered)
 
-    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.0, 0.1, 0.2)
+    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.0, 0.1, 0.2, do_rotate=False)
     for chromosome in evolution.chromosomes:
         print(f"fit: {fitFun(chromosome):.2f} ", end=" ")
         for piece in chromosome:
@@ -239,6 +247,7 @@ if __name__ == '__main__':
         print()
 
         if it % 40 == 0:
+            apply_images_to_puzzles(best_chromosome)
             image = puzzle_snake.get_snake_image(best_chromosome)
             image_processing.view_image(image, it)
 

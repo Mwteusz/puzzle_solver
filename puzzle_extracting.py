@@ -59,12 +59,13 @@ def shift_notches(notches, rotations):
 
 
 class ExtractedPuzzle:
-    def __init__(self, notches: [NotchType] = None, image = None, mask = None, corners = None, id=None):
+    def __init__(self, notches: [NotchType] = None, image = None, mask = None, corners = None, id=None, rotation=0):
         self.notches = notches
         self.image = image
         self.mask = mask
         self.corners = corners
         self.id = id
+        self.rotation = rotation
 
 
     def __str__(self):
@@ -77,6 +78,9 @@ class ExtractedPuzzle:
         """ rotations means 90 degree rotations, 1 rotation = 90 degrees, 2 rotations = 180 degrees, etc. """
         #print("rotating by", rotations)
         rotations = rotations % 4
+        self.rotation += rotations
+        self.rotation = rotations % 4
+
         if self.image is not None:
             self.image = rotate_90(self.image, rotations)
         self.mask = rotate_90(self.mask, rotations)
@@ -87,7 +91,7 @@ class ExtractedPuzzle:
         """returns a deep copy of the object, if copy_image is True, the image is copied as well, otherwise it is None"""
         new_corners = [(corner[0], corner[1]) for corner in self.corners]
         image_copy = None if (copy_image is False or self.image is None) else self.image.copy()
-        return ExtractedPuzzle(notches=self.notches.copy(), image=image_copy, mask=self.mask.copy(), corners=new_corners, id=self.id)
+        return ExtractedPuzzle(notches=self.notches.copy(), image=image_copy, mask=self.mask.copy(), corners=new_corners, id=self.id, rotation=self.rotation)
 
 
     def find_corners(self):
@@ -128,6 +132,7 @@ class ExtractedPuzzle:
         #view_corners(self.image, test_corners)
         #image_processing.view_image(edges, title="edges")
         if len(self.corners) != 4:
+            image_processing.view_image(self.image, title="not enough corners found")
             raise Exception(f"4 corners should be found, but found: {len(self.corners)}")
 
     def align_to_grid(self):
@@ -152,6 +157,12 @@ class ExtractedPuzzle:
         self.mask = rotate(self.mask, median_element)
         self.mask = turn_into_binary(self.mask, 0.5)  # removes aliasing
         self.image = rotate(self.image, median_element)
+        self.corners = None  # corners need to be recalculated
+        return
+    def expand(self):
+        self.mask = rotate(self.mask, 0)
+        #self.mask = turn_into_binary(self.mask, 0.5)  # removes aliasing
+        self.image = rotate(self.image, 0)
         self.corners = None  # corners need to be recalculated
         return
     def find_notches(self):
@@ -192,6 +203,13 @@ class PuzzleCollection:
     def __init__(self, pieces: [ExtractedPuzzle] = None):
         self.pieces = pieces
 
+    def expand_all(self):
+        """finds the best angle for each puzzle, so that the edges are aligned to a grid"""
+        for i, puzzle in enumerate(self.pieces):
+            puzzle.expand()
+        return
+
+
     def align_all(self):
         """finds the best angle for each puzzle, so that the edges are aligned to a grid"""
         progress_bar = ProgressBar(total=len(self.pieces), msg="aligning puzzles")
@@ -200,7 +218,6 @@ class PuzzleCollection:
             puzzle.align_to_grid()
         progress_bar.conclude()
         return
-
 
     def establish_notches(self):
         """finds the notches for each puzzle"""
@@ -237,9 +254,9 @@ class PuzzleCollection:
             str += f"puzzle {i}\n"
             str += puzzle.__str__()
         return str
-
     def get_preview(self):
         return image_processing.images_to_image([puzzle.get_preview() for puzzle in self.pieces])
+
     def save_puzzles(self, path):
         self.for_each(lambda puzzle, i: image_processing.save_image(f"{path}_{i}.png", puzzle.image))
 
@@ -359,13 +376,16 @@ def find_neighbours(values, distance=5):
     return result
 
 
-def extract_puzzles(image, mask=None):
+def extract_puzzles(image, mask=None, rotate=True):
     mask = image_processing.threshold(image, 0) if mask is None else mask
     print("extracting puzzles")
     masks = find_contours(mask)
     print(f"number of puzzles: {len(masks)}")
     puzzle_collection = get_puzzles_from_masks(image, masks)
-    puzzle_collection.align_all()
+    if rotate:
+        puzzle_collection.align_all()
+    else:
+        puzzle_collection.expand_all()
     puzzle_collection.find_corners()
     puzzle_collection.establish_notches()
 
@@ -379,18 +399,20 @@ def images_to_puzzle_collection(puzzle_images, puzzle_masks):
 
 
 if __name__ == '__main__':
-    name = "bliss"
+    name = "scattered_widzew_3x3"
     #name = "processed_photo"
     path = f"results/{name}.png"
 
     image = image_processing.load_image(path)
+    image = image_processing.resize_image(image, 0.5)
     mask = image_processing.load_image(path.replace(".", "_mask."))
+    mask = image_processing.resize_image(mask, 0.5)
 
     timer = timer.Timer()
-    puzzle_collection = extract_puzzles(image, mask)
+    puzzle_collection = extract_puzzles(image, mask, rotate=False)
     timer.print("extracting puzzles")
 
-    puzzle_collection.pickle()
+    puzzle_collection.pickle(suffix=f"_{name}_no_rotate")
 
     big_preview = puzzle_collection.get_preview()
     image_processing.save_image(f"extracted/{name}_log.png", big_preview)

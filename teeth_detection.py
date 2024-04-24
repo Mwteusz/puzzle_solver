@@ -94,8 +94,21 @@ def is_there_connection(vector,image,percentage=0.1):
     point1 = move_towards(vector.point1, center, percentage=percentage)
     point2 = move_towards(vector.point2, center, percentage=percentage)
 
+
     coords = bresenham.connect(point1, point2)
-    pixels = [convert_rgb_to_binary(image[coord[1], coord[0]]) for coord in coords]
+    pixels = []
+    for coord in coords:
+        try:
+            #print(point1, point2, coord, image.shape)
+            converted = convert_rgb_to_binary(image[coord[1], coord[0]])
+            pixels.append(converted)
+        except:
+            preview = draw_circle(image, point1, 30, (0, 0, 255))
+            preview = draw_circle(preview, point2, 30, (0, 0, 255))
+            preview = cv2.line(preview, point1, point2, (0, 0, 255), 10)
+            print("zle dobrany percentage!! jestesmy poza obrazkiem....\n",pixels)
+            image_processing.view_image(preview)
+
     pixels = remove_single_pixels(pixels)
 
     amount = count_flips(pixels)
@@ -118,7 +131,7 @@ def is_there_connection(vector,image,percentage=0.1):
 
 def is_there_knob(vector, image):
     """check if there is a hole inside the piece, by checking if there are 2 flips in the pixels on the vector line"""
-    return is_there_connection(vector, image, percentage=-0.3)
+    return is_there_connection(vector, image, percentage=-0.2)
 def is_there_hole_inside(vector, image):
     """check if there is a hole inside the piece, by checking if there are 2 flips in the pixels on the vector line"""
     return is_there_connection(vector, image, percentage=0.3)

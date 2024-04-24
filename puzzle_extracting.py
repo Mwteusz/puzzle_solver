@@ -77,9 +77,9 @@ class ExtractedPuzzle:
     def rotate(self, rotations):
         """ rotations means 90 degree rotations, 1 rotation = 90 degrees, 2 rotations = 180 degrees, etc. """
         #print("rotating by", rotations)
-        rotations = rotations % 4
+        rotations %= 4
         self.rotation += rotations
-        self.rotation = rotations % 4
+        self.rotation %= 4
 
         if self.image is not None:
             self.image = rotate_90(self.image, rotations)
@@ -188,8 +188,8 @@ class ExtractedPuzzle:
 
         return image
 
-    def get_rotated(self, rotations):
-        rotated = self.deep_copy()
+    def get_rotated(self, rotations, copy_image=True):
+        rotated = self.deep_copy(copy_image)
         rotated.rotate(rotations)
         return rotated
 
@@ -209,6 +209,9 @@ class PuzzleCollection:
             puzzle.expand()
         return
 
+    def set_ids(self):
+        for i, piece in enumerate(self.pieces):
+            piece.id = i
 
     def align_all(self):
         """finds the best angle for each puzzle, so that the edges are aligned to a grid"""

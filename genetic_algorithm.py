@@ -30,18 +30,7 @@ def fitFun(puzzles, print_fits=False):
     score = 0
 
     for i, piece in enumerate(puzzles):
-
-        # desired = [3, 1, 0, 2]
-        # ids = []
-        # for puzzle in puzzles:
-        #    ids.append(puzzle.id)
-        # if ids == desired:
-        #    print("found")
-
-        if i == len(puzzles) - 1:
-            next_piece = puzzles[0]
-        else:
-            next_piece = puzzles[i + 1]
+        next_piece= puzzles[(i+1)%len(puzzles)]
 
         edge1, edge2 = edges_to_test(piece.notches)
         try:
@@ -79,9 +68,9 @@ class Evolution:
 
         for i in range(num_of_chromosomes):
             if do_rotate:
-                filtered_copy = [piece.get_rotated(random.randint(0, 3)) for piece in filtered]
+                filtered_copy = [piece.get_rotated(random.randint(0, 3), False) for piece in edge_pieces]
             else:
-                filtered_copy = [piece.deep_copy() for piece in filtered]
+                filtered_copy = [piece.deep_copy(False) for piece in edge_pieces]
             random.shuffle(filtered_copy)
             self.chromosomes.append(filtered_copy)
 
@@ -97,38 +86,22 @@ class Evolution:
             for n in fitness:
                 sum += n
                 if num < sum:
-                    new_chromosomes.append([piece.deep_copy() for piece in chromosome])
+                    new_chromosomes.append([piece.deep_copy(False) for piece in chromosome])
                     break
                 index += 1
 
         return new_chromosomes
-
-    # def roulette(self, chromosomes):
-    #    fitnesses = [fitFun(chromosome) for chromosome in chromosomes]
-    #    sum = np.sum(fitnesses)
-    #    if sum == 0:
-    #        return
-    #    fitnesses = np.array(fitnesses) / sum
-    #
-    #    indexes = range(len(chromosomes))
-    #    new_chromosomes = []
-    #    for i in range(len(chromosomes)):
-    #        index = np.random.choice(indexes, p=fitnesses)
-    #        new_chromosomes.append([piece.deep_copy() for piece in chromosomes[index]])
-    #
-    #    return new_chromosomes
-
     def crossover(self, mother, father):
 
         mother_ids = [piece.id for piece in mother]
         father_ids = [piece.id for piece in father]
 
         a, b = random.sample(range(self.num_of_genes), 2)
-        a, b = min(a, b), max(a, b)
+        a, b = min(a, b), max(a, b) # get slice bounds
 
-        mother_slice = mother_ids[a:b]
-        son = [piece.deep_copy(False) for piece in father if (piece.id not in mother_slice)]
-        son[a:a] = [piece.deep_copy(False) for piece in mother if (piece.id in mother_slice)]
+        mother_slice = mother_ids[a:b] # get ids of the slice
+        son = [piece.deep_copy(False) for piece in father if (piece.id not in mother_slice)] # copy father's pieces that are not in the slice
+        son[a:a] = [piece.deep_copy(False) for piece in mother if (piece.id in mother_slice)] # insert mother's slice into son
 
         father_slice = father_ids[a:b]
         daughter = [piece.deep_copy(False) for piece in mother if (piece.id not in father_slice)]
@@ -153,11 +126,6 @@ class Evolution:
             if random.random() < probability:
                 index1, index2 = random.sample(range(self.num_of_genes), 2)
                 chromosome[index1], chromosome[index2] = chromosome[index2], chromosome[index1]
-
-        # for chromosome in chromosomes:
-        #    if random.random() < probability:
-        #        index = random.randint(0, self.num_of_genes - 2)
-        #        chromosome[index], chromosome[index+1] = chromosome[index+1], chromosome[index]
 
     def insertion_mutation(self, chromosomes, probability):
         for chromosome in chromosomes:
@@ -197,77 +165,55 @@ class Evolution:
         self.chromosomes = best_chromosomes + children
         self.chromosomes.sort(key=fitFun, reverse=True)
 
+    def get_best_chromosome(self):
+        return self.chromosomes[-1]
+
     def __str__(self):
         result = ""
         for i, chromosome in enumerate(self.chromosomes):
             result += f"{i}: {fitFun(chromosome)}\n"
         return result
 
+    def get_sum_of_fits(self):
+        return sum(fitFun(chromosome) for chromosome in self.chromosomes)
+
 
 def apply_images_to_puzzles(puzzles):
     for i, puzzle in enumerate(puzzles):
-        puzzle.image = filtered[puzzle.id].get_rotated(puzzle.rotation).image
+        puzzle.image = edge_pieces[puzzle.id].get_rotated(puzzle.rotation).image
 
 
-filtered = None
+edge_pieces = None
 if __name__ == '__main__':
 
     puzzle_collection = PuzzleCollection.unpickle(name="2024-04-24_scattered_widzew_3x3_no_rotate.pickle")
-    filtered, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
-    filtered = filtered.pieces
-    image_processing.view_image(puzzle_collection.get_preview())
-    for i, piece in enumerate(filtered):
-        piece.id = i
-        # image_processing.view_image(piece.image, piece.id)
+    puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
+    puzzle_collection.set_ids()
+    image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")
+    edge_pieces = puzzle_collection.pieces
 
+
+    num_of_iterations = 1000
     num_of_chromosomes = 100
-    num_of_genes = len(filtered)
+    num_of_genes = len(edge_pieces)
 
-    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.0, 0.1, 0.2, do_rotate=False)
-    for chromosome in evolution.chromosomes:
-        print(f"fit: {fitFun(chromosome):.2f} ", end=" ")
-        for piece in chromosome:
-            print(piece.id, end=" ")
-        print()
+    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.1, 0.1, 0.2, do_rotate=False)
 
-    pass
-    for it in tqdm(range(1000)):
+    for it in tqdm(range(num_of_iterations)):
         evolution.iteration()
 
-        fit_sum = 0
-        for chromosome in evolution.chromosomes:
-            fit_sum += fitFun(chromosome)
-        print("sum of fits: ", fit_sum)
+        best_chromosome = evolution.get_best_chromosome()
+        best_fit = fitFun(best_chromosome)
 
-        best_chromosome = evolution.chromosomes[-1]
-        print(f" iteration {it} \n{fitFun(best_chromosome, True)}", end=" ")
-        print("piece ids:", end=" ")
-        for piece in best_chromosome:
-            print(piece.id, end=" ")
-        print()
+        print(f" sum of fits: {evolution.get_sum_of_fits():.2f}", end=" ")
+        print(f"best fit: {best_fit}", end=" ")
+        print(f"piece ids: {[piece.id for piece in best_chromosome]}")
 
-        if it % 40 == 0:
+        if (it % 40 == 0) or (it == num_of_iterations - 1) or (best_fit < 1):
             apply_images_to_puzzles(best_chromosome)
             image = puzzle_snake.get_snake_image(best_chromosome)
-            image_processing.view_image(image, it)
+            image_processing.view_image(image, f"fit={best_fit:.2f}, it={it}")
+            if best_fit < 1:
+                break
 
-        # print(evolution)
 
-    best_chromosome = evolution.chromosomes[-1]
-    # worst_chromosome = evolution.chromosomes[0]
-    # print(fitFun(best_chromosome))
-
-    for i, chromosome in enumerate(evolution.chromosomes):
-        print(i, fitFun(chromosome))
-        # image = puzzle_snake.get_snake_image(chromosome)
-        # puzzle_snake.image_processing.view_image(image,fitFun(chromosome))
-
-    fit = fitFun(best_chromosome)
-    image = puzzle_snake.get_snake_image(best_chromosome)
-    print(f"best fit: {fit}")
-    print("piece ids:", end=" ")
-    for piece in best_chromosome:
-        print(piece.id, end=" ")
-    print()
-    image_processing.save_image(f"results/snake_{fit}.png", image)
-    image_processing.view_image(image, fit)

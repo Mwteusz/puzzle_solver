@@ -89,25 +89,24 @@ def remove_single_pixels(pixels):
     return result
 
 
-def is_there_connection(vector,image,percentage=0.1):
+def is_point_inside_shape(point, shape):
+    if 0 <= point[0] < shape[1] and 0 <= point[1] < shape[0]:
+        return True
+    return False
+
+
+
+def is_there_connection(vector,image, percentage):
     center = (image.shape[1] // 2, image.shape[0] // 2)
     point1 = move_towards(vector.point1, center, percentage=percentage)
     point2 = move_towards(vector.point2, center, percentage=percentage)
 
+    if not is_point_inside_shape(point1, image.shape[:2]) or not is_point_inside_shape(point2, image.shape[:2]):
+        print("Point outside image!!!")
+        return False
 
     coords = bresenham.connect(point1, point2)
-    pixels = []
-    for coord in coords:
-        try:
-            #print(point1, point2, coord, image.shape)
-            converted = convert_rgb_to_binary(image[coord[1], coord[0]])
-            pixels.append(converted)
-        except:
-            preview = draw_circle(image, point1, 30, (0, 0, 255))
-            preview = draw_circle(preview, point2, 30, (0, 0, 255))
-            preview = cv2.line(preview, point1, point2, (0, 0, 255), 10)
-            print("zle dobrany percentage!! jestesmy poza obrazkiem....\n",pixels)
-            image_processing.view_image(preview)
+    pixels = [convert_rgb_to_binary(image[coord[1], coord[0]]) for coord in coords]
 
     pixels = remove_single_pixels(pixels)
 

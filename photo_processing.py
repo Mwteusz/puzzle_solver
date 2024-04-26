@@ -33,7 +33,8 @@ def process_photo(path= "input_photos/good_one.png"):
 
 
 if __name__ == '__main__':
-    path = "input_photos/good_one.png"
+    #path = "input_photos/good_one.png"
+    path = "puzzle_images/IMG_20240327_175301.jpg"
     image, mask = process_photo(path)
 
     image_processing.save_image("results/processed.png", image)

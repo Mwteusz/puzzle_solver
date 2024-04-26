@@ -49,9 +49,8 @@ def fitFun(puzzles, print_fits=False):
 
         score += add
         if print_fits:
-            print(f"({piece.id}+{next_piece.id})={add:.2f}", end=" ")
-    if print_fits:
-        print()
+            print(f"{piece.id}, {piece.rotation}, {next_piece.id}, {next_piece.rotation}, {add:.2f}")
+
 
     max_potential_score = len(puzzles)
     return -score + max_potential_score
@@ -193,18 +192,18 @@ def apply_images_to_puzzles(puzzles):
 edge_pieces = None
 if __name__ == '__main__':
 
-    puzzle_collection = PuzzleCollection.unpickle(name="2024-04-26_bambi.pickle")
+    puzzle_collection = PuzzleCollection.unpickle(name="2024-04-26_scattered_kot_v=4_r=False.pickle")
     puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
     puzzle_collection.set_ids()
     image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")
     edge_pieces = puzzle_collection.pieces
 
 
-    num_of_iterations = 1000000
+    num_of_iterations = 10000000
     num_of_chromosomes = 100
     num_of_genes = len(edge_pieces)
 
-    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.1, 0.1, 0.2, do_rotate=True)
+    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.1, 0.1, 0.2, do_rotate=False)
 
     for it in tqdm(range(num_of_iterations)):
         evolution.iteration()
@@ -218,13 +217,25 @@ if __name__ == '__main__':
             print(f"best fit: {best_fit:.3f}", end=" ")
             print(f"piece ids: {[piece.id for piece in best_chromosome]}")
 
-        if (it % 1000 == 0) or (it == num_of_iterations - 1) or (best_fit < 1):
+        if (it % 1000 == 0) or (it == num_of_iterations - 1) or (best_fit < 0.4):
             best_chromosome = evolution.get_best_chromosome()
-            best_fit = fitFun(best_chromosome)
+            best_fit = fitFun(best_chromosome, print_fits=True)
+            print(f"best fit: {best_fit:.3f}")
 
             apply_images_to_puzzles(best_chromosome)
-            image = puzzle_snake.get_snake_image(best_chromosome)
-            image_processing.view_image(image, f"fit={best_fit:.2f}, it={it}")
+            snake_animation = puzzle_snake.get_snake_animation(best_chromosome, show_animation=False)
+            #snake = puzzle_snake.get_snake_image(best_chromosome)
+            #image_processing.view_image(image, f"fit={best_fit:.2f}, it={it}")
+
+            # resize images to the same size
+            max_width = max([image.shape[1] for image in snake_animation])
+            max_height = max([image.shape[0] for image in snake_animation])
+            for i, image in enumerate(snake_animation):
+                image = image_processing.expand_right_bottom(image, max_height, max_width)
+                image_processing.save_image(f"snakes/it{it}_piece{i}.png", image)
+            print(f"saved snake.png")
+            puzzle_snake.snake_images = []
+
             if best_fit < 1:
                 break
 

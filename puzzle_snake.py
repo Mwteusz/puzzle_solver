@@ -92,16 +92,16 @@ def get_snake_image(puzzles, animation=False,show_image=False):
 
     connection_point = (100, 100)
     edge = "LEFT"
-    animation =[]
+    animation_frames = []
     for i, puzzle in enumerate(puzzles):
         image, connection_point, next_edge = place_puzzle(image, puzzle, connection_point, edge)
         edge = get_opposite_edge(next_edge)
         if animation:
-            animation.append(image.copy())
+            animation_frames.append(image.copy())
             if show_image:
                 image_processing.view_image(image)
     if animation:
-        return animation
+        return animation_frames
     if show_image:
         image_processing.view_image(image)
     return image

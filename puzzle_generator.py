@@ -269,15 +269,21 @@ def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5, 
 
 
 if __name__ == '__main__':
-    image = image_processing.load_image("input_photos/widzew.png")
-    puzzle_images, puzzle_masks = image_to_puzzles(image=image, vertical_puzzle_size=3, force=True)
-    preview = image_processing.images_to_image(puzzle_images)
-    image_processing.view_image(preview, "generated puzzle")
+    name="kot"
+    do_rotate = False
+    v=4
 
-    scattered_puzzle = scatter.scatter_pieces((image.shape[0] * 2, image.shape[1] * 2), pieces=puzzle_images, minimum_distance=10,rotate=False)
+
+    image = image_processing.load_image(f"input_photos/{name}.png")
+    puzzle_images, puzzle_masks = image_to_puzzles(image=image, vertical_puzzle_size=v, force=True)
+
+    #preview
+    image_processing.view_image(image_processing.images_to_image(puzzle_images), "generated puzzle")
+
+    scattered_puzzle = scatter.scatter_pieces((image.shape[0] * 2, image.shape[1] * 2), pieces=puzzle_images, minimum_distance=10,rotate=do_rotate)
     image_processing.view_image(scattered_puzzle, "scattered puzzle")
-    image_processing.save_image("results/scattered_widzew_3x3.png", scattered_puzzle)
-    image_processing.save_image("results/scattered_widzew_3x3_mask.png", image_processing.threshold(scattered_puzzle, 0))
+    image_processing.save_image(f"results/scattered_{name}_v={v}_r={str(do_rotate)}.png", scattered_puzzle)
+    image_processing.save_image(f"results/scattered_{name}_v={v}_r={str(do_rotate)}_mask.png", image_processing.threshold(scattered_puzzle, 0))
 
 
 

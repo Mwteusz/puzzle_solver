@@ -402,7 +402,7 @@ def images_to_puzzle_collection(puzzle_images, puzzle_masks):
 
 
 if __name__ == '__main__':
-    name = "processed"
+    name = "scattered_kot_v=4_r=False"
     #name = "processed_photo"
     path = f"results/{name}.png"
 
@@ -412,10 +412,10 @@ if __name__ == '__main__':
     mask = image_processing.resize_image(mask, 0.5)
 
     timer = timer.Timer()
-    puzzle_collection = extract_puzzles(image, mask, rotate=True)
+    puzzle_collection = extract_puzzles(image, mask, rotate=False)
     timer.print("extracting puzzles")
 
-    puzzle_collection.pickle(suffix=f"_{name}_no_rotate")
+    puzzle_collection.pickle(suffix=f"_{name}")
 
     big_preview = puzzle_collection.get_preview()
     image_processing.save_image(f"extracted/{name}_log.png", big_preview)

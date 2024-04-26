@@ -132,30 +132,33 @@ def get_mask_xor_ratio(puzzle1, edge_type1, puzzle2, edge_type2) -> (float, np.n
 
 
 def flat_sides_match(puzzle1, edge1, puzzle2, edge2):
-    #check if flat side is along the edge of pair of puzzles
+    # check if flat side is along the edge of pair of puzzles
     directions = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
 
     check_for_flats1 = [direction for direction in directions if (direction not in [edge1, get_opposite_edge(edge1)])]
     check_for_flats2 = [direction for direction in directions if (direction not in [edge2, get_opposite_edge(edge2)])]
-    #check_for_flats contain all edges except connection edge and its opposite edge, because they don't matter
+    # check_for_flats contain all edges except connection edge and its opposite edge, because they don't matter
 
-    flats1=[flat for flat in check_for_flats1 if  puzzle1.get_notch(flat) == teeth_detection.NotchType.NONE]
-    flats2=[flat for flat in check_for_flats2 if  puzzle2.get_notch(flat) == teeth_detection.NotchType.NONE]
+    flats1 = [flat for flat in check_for_flats1 if puzzle1.get_notch(flat) == teeth_detection.NotchType.NONE]
+    flats2 = [flat for flat in check_for_flats2 if puzzle2.get_notch(flat) == teeth_detection.NotchType.NONE]
 
-    if len(flats1) != len(flats2): #puzzle has a flat side that the other doesn't
+    if len(flats1) != len(flats2):  # puzzle has a flat side that the other doesn't
         return False
-    if len(flats1) == 0: #no flat sides
+    if len(flats1) == 0:  # no flat sides
         return True
-    if len(flats1) == 2: #weird edge case, both puzzles have 2 flat sides (one dimensional puzzle)
+    if len(flats1) == 2:  # weird edge case, both puzzles have 2 flat sides (one dimensional puzzle)
         return True
 
     # check if the flat sides are on the same side
     next_edge1 = teeth_detection.get_next_type(edge1)
-    next_edge2 = teeth_detection.get_next_type(edge2)
-    #_print_flat_side_info(edge1, edge2, next_edge1, next_edge2, puzzle1, puzzle2)
+    prev_edge2 = teeth_detection.get_previous_type(edge2)
+    # _print_flat_side_info(edge1, edge2, next_edge1, next_edge2, puzzle1, puzzle2)
+    if puzzle1.get_notch(next_edge1) == teeth_detection.NotchType.NONE and puzzle1.get_notch(prev_edge2) == teeth_detection.NotchType.NONE:
+        return True #flats are on the same side!!
 
-    #flats are on the same side when the opposite notches don't match
-    if puzzle1.get_notch(next_edge1) != puzzle2.get_notch(next_edge2):
+    prev_edge1 = teeth_detection.get_previous_type(edge1)
+    next_edge2 = teeth_detection.get_next_type(edge2)
+    if puzzle1.get_notch(prev_edge1) == teeth_detection.NotchType.NONE and puzzle1.get_notch(next_edge2) == teeth_detection.NotchType.NONE:
         return True #flats are on the same side!!
     return False
 

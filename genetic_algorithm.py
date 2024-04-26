@@ -193,31 +193,32 @@ def apply_images_to_puzzles(puzzles):
 edge_pieces = None
 if __name__ == '__main__':
 
-    puzzle_collection = PuzzleCollection.unpickle(name="2024-04-24_scattered_widzew_3x3_no_rotate.pickle")
+    puzzle_collection = PuzzleCollection.unpickle(name="2024-04-26_bambi.pickle")
     puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
     puzzle_collection.set_ids()
     image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")
     edge_pieces = puzzle_collection.pieces
 
 
-    num_of_iterations = 1000
+    num_of_iterations = 1000000
     num_of_chromosomes = 100
     num_of_genes = len(edge_pieces)
 
-    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.1, 0.1, 0.2, do_rotate=False)
+    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.1, 0.1, 0.2, do_rotate=True)
 
     for it in tqdm(range(num_of_iterations)):
         evolution.iteration()
 
+        best_chromosome = evolution.get_best_chromosome()
+        best_fit = fitFun(best_chromosome)
+
         if it % 10 == 0:
-            best_chromosome = evolution.get_best_chromosome()
-            best_fit = fitFun(best_chromosome)
 
             print(f" sum of fits: {evolution.get_sum_of_fits():.2f}", end=" ")
             print(f"best fit: {best_fit:.3f}", end=" ")
             print(f"piece ids: {[piece.id for piece in best_chromosome]}")
 
-        if (it % 40 == 0) or (it == num_of_iterations - 1) or (best_fit < 1):
+        if (it % 1000 == 0) or (it == num_of_iterations - 1) or (best_fit < 1):
             best_chromosome = evolution.get_best_chromosome()
             best_fit = fitFun(best_chromosome)
 

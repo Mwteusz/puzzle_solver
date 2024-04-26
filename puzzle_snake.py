@@ -79,22 +79,36 @@ def expand_left_top(background, image_start_pos):
     image_start_pos = (image_start_pos[0] + shift_x, image_start_pos[1] + shift_y)
     return background, image_start_pos
 
-snake_images = []
-def get_snake_image(puzzles):
-    """Place puzzles in a snake-like pattern. Used for edge pieces only!"""
+
+def get_snake_image(puzzles, animation=False,show_image=False):
+    """Place puzzles in a snake-like pattern. Used for edge pieces only!
+    :param puzzles: list of ExtractedPuzzle objects
+    :param animation: bool, if True, return list of images for animation
+    :param show_image: bool, if True, show the image/animation
+    :return: np.ndarray, image/animation with puzzles placed in a snake-like pattern"""
 
     width, height = 300, 300
     image = np.zeros((height, width, 3), dtype=np.uint8)
 
     connection_point = (100, 100)
     edge = "LEFT"
+    animation =[]
     for i, puzzle in enumerate(puzzles):
         image, connection_point, next_edge = place_puzzle(image, puzzle, connection_point, edge)
         edge = get_opposite_edge(next_edge)
-        global snake_images
-        snake_images.append(image.copy())
+        if animation:
+            animation.append(image.copy())
+            if show_image:
+                image_processing.view_image(image)
+    if animation:
+        return animation
+    if show_image:
         image_processing.view_image(image)
     return image
+
+
+def get_snake_animation(puzzles, show_animation=False):
+    return get_snake_image(puzzles, animation=True, show_image=show_animation)
 
 
 if __name__ == '__main__':

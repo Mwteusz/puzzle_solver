@@ -222,14 +222,14 @@ if __name__ == '__main__':
             best_fit = fitFun(best_chromosome, print_fits=True)
 
             apply_images_to_puzzles(best_chromosome)
-            image = puzzle_snake.get_snake_image(best_chromosome)
+            snake_animation = puzzle_snake.get_snake_animation(best_chromosome, show_animation=True)
+            #snake = puzzle_snake.get_snake_image(best_chromosome)
             #image_processing.view_image(image, f"fit={best_fit:.2f}, it={it}")
 
-            #max_width = puzzle_snake.snake_images[0].shape[1]
-            max_width = max([image.shape[1] for image in puzzle_snake.snake_images])
-            max_height = max([image.shape[0] for image in puzzle_snake.snake_images])
-            #resize images to the same size
-            for i, image in enumerate(puzzle_snake.snake_images):
+            # resize images to the same size
+            max_width = max([image.shape[1] for image in snake_animation])
+            max_height = max([image.shape[0] for image in snake_animation])
+            for i, image in enumerate(snake_animation):
                 image = image_processing.expand_right_bottom(image, max_height, max_width)
                 image_processing.save_image(f"snakes/it{it}_piece{i}.png", image)
             print(f"saved snake.png")

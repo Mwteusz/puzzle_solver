@@ -209,22 +209,24 @@ if __name__ == '__main__':
     for it in tqdm(range(num_of_iterations)):
         evolution.iteration()
 
-        if it % 10 == 0:
-            best_chromosome = evolution.get_best_chromosome()
-            best_fit = fitFun(best_chromosome)
+
+        best_chromosome = evolution.get_best_chromosome()
+        best_fit = fitFun(best_chromosome)
+
+        if (it == num_of_iterations - 1) or (it % 10 == 0) or (best_fit < 1):
 
             print(f" sum of fits: {evolution.get_sum_of_fits():.2f}", end=" ")
             print(f"best fit: {best_fit:.3f}", end=" ")
             print(f"piece ids: {[piece.id for piece in best_chromosome]}")
 
-        if (it % 40 == 0) or (it == num_of_iterations - 1) or (best_fit < 1):
-            best_chromosome = evolution.get_best_chromosome()
-            best_fit = fitFun(best_chromosome)
-
-            apply_images_to_puzzles(best_chromosome)
-            image = puzzle_snake.get_snake_image(best_chromosome)
-            image_processing.view_image(image, f"fit={best_fit:.2f}, it={it}")
             if best_fit < 1:
+
+                apply_images_to_puzzles(best_chromosome)
+                image = puzzle_snake.get_snake_image(best_chromosome)
+                image_processing.view_image(image, f"fit={best_fit:.2f}, it={it}")
                 break
+        if it % 100 == 0:
+            #print all fits
+            print(evolution)
 
 

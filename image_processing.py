@@ -1,8 +1,13 @@
 import cv2
 import numpy as np
 
+import os
 def save_image(path, image):
+    directory = os.path.dirname(path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     cv2.imwrite(path, image)
+    print("saved image: ", path)
 
 def threshold(image, threshold):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)

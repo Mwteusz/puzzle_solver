@@ -61,6 +61,17 @@ class Piece:
         circle_center = vector[0] * (a//2), vector[1] * (a//2) #coords of the knob
 
         cicle_coords = (image_center[0] + circle_center[0], image_center[1] + circle_center[1])
+        offset = int(edge.offset * radius)
+        #negate the offset if the knob is on the left or top side
+        if vector[0] < 0 or vector[1] < 0:
+            offset = -offset
+
+
+        #add offset to x if the knob is on the horizontal side of the piece and to y if the knob is on the vertical side
+        if vector[0] == 0:
+            cicle_coords = (cicle_coords[0] + offset, cicle_coords[1])
+        else:
+            cicle_coords = (cicle_coords[0], cicle_coords[1] + offset)
         if self.equals(edge.piece_with_hole.piece):
             self.puzzle_image = make_hole(self.puzzle_image, cicle_coords, radius)
         else:
@@ -86,12 +97,15 @@ class Edge:
         self.node1 = node1
         self.node2 = node2
         self.piece_with_hole = None
+        self.offset = 0
 
     def equals(self, edge):
         return (self.node1 == edge.node1 and self.node2 == edge.node2) or (self.node1 == edge.node2 and self.node2 == edge.node1)
 
     def set_hole(self, piece):
         self.piece_with_hole = piece
+    def set_offset(self, offset):
+        self.offset = offset
     def get_nodes(self):
         return [self.node1, self.node2]
 
@@ -183,6 +197,7 @@ def carve_knobs(all_edges):
 
         random_piece = random.choice(edge_nodes)
         edge.set_hole(random_piece)
+        edge.set_offset((random.random() - 0.5)*0.8)
 
         for node in edge_nodes:
             node.piece.carve_knob(edge)
@@ -196,8 +211,8 @@ def save_puzzles(nodes, grid_size_x, grid_size_y):
 
 def get_pieces_from_graph(nodes)->list:
     pieces = []
-    for x in range(nodes.shape[0]):
-        for y in range(nodes.shape[1]):
+    for y in range(nodes.shape[1]):
+        for x in range(nodes.shape[0]):
             pieces.append(nodes[x, y].piece)
     return pieces
 
@@ -234,7 +249,7 @@ def create_puzzles(image, puzzle_size)->tuple[list[np.ndarray], tuple[int, int]]
 
 
 
-def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5, image = None, force=False) -> tuple[list[np.ndarray], list[np.ndarray]]:
+def image_to_puzzles(path = None, vertical_puzzle_size = 5, image = None, force=False) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """:returns: list of pieces, masks of pieces"""
     if image is None:
         image = image_processing.load_image(path)
@@ -248,31 +263,10 @@ def image_to_puzzles(path = "input_photos/bliss.png", vertical_puzzle_size = 5, 
     return pieces, masks
 
 
-
-
-#if __name__ == '__main__':
-#
-#    image_names = ["bliss", "coolimage","dom","dywan","good_one","gorawino2","lake"]
-#    for name in image_names:
-#        path = f"input_photos/{name}.png"
-#        image = image_processing.load_image(path)
-#        puzzle_images, masks = image_to_puzzles(vertical_puzzle_size=3, image=image)
-#
-#        output_size = (image.shape[0]*2, image.shape[1]*2)
-#        scattered_puzzle = scatter.scatter_pieces(output_size, pieces=puzzle_images, minimum_distance=10)
-#
-#        image_processing.save_image(f"results/{name}.png", scattered_puzzle)
-#        image_processing.save_image(f"results/{name}_mask.png", image_processing.threshold(scattered_puzzle,0))
-#
-#        image_processing.view_image(scattered_puzzle)
-#
-
-
 if __name__ == '__main__':
-    name="kot"
+    name="bliss"
     do_rotate = False
-    v=4
-
+    v=3
 
     image = image_processing.load_image(f"input_photos/{name}.png")
     puzzle_images, puzzle_masks = image_to_puzzles(image=image, vertical_puzzle_size=v, force=True)

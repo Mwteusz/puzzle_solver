@@ -28,9 +28,10 @@ def edges_to_test(notches: dict):
 
 
 fit_cache = {}
-def fitFun(puzzles, print_fits=False):
+def fitFun(puzzles, print_fits=False, get_fits=False):
     score = 0
 
+    fits = []
     for i, piece in enumerate(puzzles):
         next_piece= puzzles[(i+1)%len(puzzles)]
 
@@ -42,18 +43,22 @@ def fitFun(puzzles, print_fits=False):
             else:
                 is_connection_possible(piece, edge1, next_piece, edge2)
                 similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, edge2)
-                add = (similarity + length_similarity) / 2
+                add = 1 - (similarity + length_similarity) / 2 # 0 is the best fit (the least distance)
                 fit_cache[(piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation)] = add
         except MatchException:
-            add = 0
+            add = 1 # if the connection is not possible, the fit is the worst
 
         score += add
-        if print_fits:
-            print(f"{piece.id}, {piece.rotation}, {next_piece.id}, {next_piece.rotation}, {add:.2f}")
+        if get_fits or print_fits:
+            fit_string = f"id1:{piece.id}, rot1:{piece.rotation}, id2:{next_piece.id}, rot2:{next_piece.rotation}, fit:{add:.2f}"
+            fits.append(fit_string)
 
+    if print_fits:
+        [print(fit) for fit in fits]
+    if get_fits:
+        return score, fits
 
-    max_potential_score = len(puzzles)
-    return -score + max_potential_score
+    return score # 0 is the best fit (the least distance)
 
 
 class Evolution:
@@ -192,7 +197,7 @@ def apply_images_to_puzzles(puzzles):
 edge_pieces = None
 if __name__ == '__main__':
 
-    puzzle_collection = PuzzleCollection.unpickle(name="2024-04-26_scattered_kot_v=4_r=False.pickle")
+    puzzle_collection = PuzzleCollection.unpickle()
     puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
     puzzle_collection.set_ids()
     image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")
@@ -202,24 +207,25 @@ if __name__ == '__main__':
     num_of_iterations = 10000000
     num_of_chromosomes = 100
     num_of_genes = len(edge_pieces)
+    desired_fit = 0.4
 
-    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.1, 0.1, 0.2, do_rotate=False)
+    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.1, 0.1, 0.2, do_rotate=True)
+
 
     for it in tqdm(range(num_of_iterations)):
         evolution.iteration()
 
         best_chromosome = evolution.get_best_chromosome()
-        best_fit = fitFun(best_chromosome)
+        best_fit, fitness_logs = fitFun(best_chromosome, get_fits=True)
 
-        if it % 10 == 0:
+        if it % 100 == 0:
 
             print(f" sum of fits: {evolution.get_sum_of_fits():.2f}", end=" ")
             print(f"best fit: {best_fit:.3f}", end=" ")
             print(f"piece ids: {[piece.id for piece in best_chromosome]}")
 
-        if (it % 1000 == 0) or (it == num_of_iterations - 1) or (best_fit < 0.4):
-            best_chromosome = evolution.get_best_chromosome()
-            best_fit = fitFun(best_chromosome, print_fits=True)
+        if (it % 1000 == 0) or (it == num_of_iterations - 1) or (best_fit < desired_fit):
+            fitFun(best_chromosome, print_fits=True)
             print(f"best fit: {best_fit:.3f}")
 
             apply_images_to_puzzles(best_chromosome)
@@ -232,11 +238,25 @@ if __name__ == '__main__':
             max_height = max([image.shape[0] for image in snake_animation])
             for i, image in enumerate(snake_animation):
                 image = image_processing.expand_right_bottom(image, max_height, max_width)
-                image_processing.save_image(f"snakes/it{it}_piece{i}.png", image)
-            print(f"saved snake.png")
+                image_processing.save_image(f"snakes/snake_it{it}/piece{i}.png", image)
+            #save the fitness as txt
+            with open(f"snakes/snake_it{it}/fitness.txt", "w") as file:
+                file.write(f"sum of fits: {best_fit:.3f}\n")
+                for log in fitness_logs:
+                    file.write(log + "\n")
+
+            print(f"saved snake_it{it}")
             puzzle_snake.snake_images = []
 
-            if best_fit < 1:
+        if best_fit < desired_fit:
+            answer = input("Do you want to continue? (y/n)")
+            if answer.lower() == "n":
                 break
+            else:
+                desired_fit -= 0.1
+                if desired_fit < 0:
+                    desired_fit = 0
+                print(f"desired fit set to: {desired_fit:.3f}")
+
 
 

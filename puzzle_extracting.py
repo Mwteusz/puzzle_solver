@@ -279,8 +279,10 @@ class PuzzleCollection:
 
     @classmethod
     def unpickle(cls,name=None):
-        if name is None:
-            name = sorted(list_files("pickles"))[-1]
+        """returns the latest pickle file, or the one specified in :param name """
+        files = list_files("pickles")
+        files.sort(key=lambda x: os.path.getmtime(f"pickles/{x}"))
+        name = files[-1] if name is None else name
         path = f"pickles/{name}"
         with open(path, "rb") as file:
             print(f"unpickling {path}")
@@ -402,7 +404,7 @@ def images_to_puzzle_collection(puzzle_images, puzzle_masks):
 
 
 if __name__ == '__main__':
-    name = "scattered_kot_v=4_r=False"
+    name = "scattered_bliss_v=3_r=False"
     #name = "processed_photo"
     path = f"results/{name}.png"
 

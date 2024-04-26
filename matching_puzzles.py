@@ -153,13 +153,15 @@ def flat_sides_match(puzzle1, edge1, puzzle2, edge2):
     next_edge1 = teeth_detection.get_next_type(edge1)
     prev_edge2 = teeth_detection.get_previous_type(edge2)
     # _print_flat_side_info(edge1, edge2, next_edge1, next_edge2, puzzle1, puzzle2)
-    if puzzle1.get_notch(next_edge1) == teeth_detection.NotchType.NONE and puzzle1.get_notch(prev_edge2) == teeth_detection.NotchType.NONE:
-        return True #flats are on the same side!!
+    if puzzle1.get_notch(next_edge1) == teeth_detection.NotchType.NONE:
+        if puzzle2.get_notch(prev_edge2) == teeth_detection.NotchType.NONE:
+            return True #flats are on the same side!!
 
     prev_edge1 = teeth_detection.get_previous_type(edge1)
     next_edge2 = teeth_detection.get_next_type(edge2)
-    if puzzle1.get_notch(prev_edge1) == teeth_detection.NotchType.NONE and puzzle1.get_notch(next_edge2) == teeth_detection.NotchType.NONE:
-        return True #flats are on the same side!!
+    if puzzle1.get_notch(prev_edge1) == teeth_detection.NotchType.NONE:
+        if puzzle2.get_notch(next_edge2) == teeth_detection.NotchType.NONE:
+            return True #flats are on the same side!!
     return False
 
 
@@ -212,7 +214,7 @@ def test_connect_puzzles(pieces, edges):
         is_connection_possible(puzzle1, edge1, puzzle2, edge2)
     except FlatSidesDoNotMatch as e:
         print(e)
-        raise e
+        #raise e
     except NotchesDoNotMatch as e:
         print(e)
         raise e
@@ -225,7 +227,8 @@ def test_connect_puzzles(pieces, edges):
 def test_random_pairs():
     print("testing random pairs!!")
     edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
-    puzzle_collection = PuzzleCollection.unpickle()
+    puzzle_collection = PuzzleCollection.unpickle("2024-04-26_bambi.pickle")
+    puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.HOLE)
     while True:
         try:
             random_indexes = random.sample(range(len(puzzle_collection.pieces)), 2)
@@ -238,6 +241,8 @@ def test_random_pairs():
 
 
 def test_pair(edge1, edge2, puzzle1, puzzle2, indexes):
+    image_processing.view_image(puzzle1.get_preview(), edge1)
+    image_processing.view_image(puzzle2.get_preview(), edge2)
     similarity, length_similarity, imgs, rotate_value = test_connect_puzzles((puzzle1, puzzle2), (edge1, edge2))
     print(f"similarity = {similarity}, length_similarity = {length_similarity}, indexes = ({indexes[0]}, {indexes[1]}, \"{edge1}\", \"{edge2}\"),")
     imgs.extend([puzzle1.get_rotated(rotate_value).get_preview(), puzzle2.get_preview()])
@@ -250,7 +255,8 @@ def test_pairs(pairs):
     for match in pairs:
         try:
             index1, index2, edge1, edge2 = match
-            puzzle_collection = PuzzleCollection.unpickle()
+            puzzle_collection = PuzzleCollection.unpickle("2024-04-26_bambi.pickle")
+            puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.HOLE)
             puzzle1, puzzle2 = puzzle_collection.pieces[index1], puzzle_collection.pieces[index2]
 
             test_pair(edge1, edge2, puzzle1, puzzle2, (index1, index2))
@@ -279,9 +285,9 @@ if __name__ == '__main__':
         (22, 29, "RIGHT", "TOP"), #should not work
     ]
 
-    ##test_pairs(test)
+    test_pairs([(18, 17, "BOTTOM", "BOTTOM")])
     #test_pairs(matching_pairs)
     #test_pairs(problematic_pairs)
-    test_random_pairs()
+    #test_random_pairs()
 
 

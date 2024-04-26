@@ -193,5 +193,14 @@ def add_border(image, padding, color=0):
     image[:,b-padding:] = color
 
 
-def resize_image(image, scale, interpolation=None):
-    return cv2.resize(image, (0, 0), fx=scale, fy=scale, interpolation=interpolation)
+def resize_image(image, scale=None, interpolation=None, size=None):
+    if scale is not None:
+        return cv2.resize(image, (0, 0), fx=scale, fy=scale, interpolation=interpolation)
+    if size is not None:
+        return cv2.resize(image, size, interpolation=interpolation)
+
+
+def expand_right_bottom(image, max_height, max_width):
+    new_image = np.zeros((max_height, max_width, 3), dtype=np.uint8)
+    new_image[:image.shape[0], :image.shape[1]] = image
+    return new_image

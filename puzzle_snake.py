@@ -6,7 +6,7 @@ import numpy as np
 
 from teeth_detection import NotchType
 from teeth_detection import get_vectors_from_corners
-from puzzle_extracting import PuzzleCollection
+from puzzle_extracting import PuzzleCollection, ExtractedPuzzle
 from matching_puzzles import get_opposite_edge
 
 def add_points(point1, point2):
@@ -79,7 +79,7 @@ def expand_left_top(background, image_start_pos):
     image_start_pos = (image_start_pos[0] + shift_x, image_start_pos[1] + shift_y)
     return background, image_start_pos
 
-
+snake_images = []
 def get_snake_image(puzzles):
     """Place puzzles in a snake-like pattern. Used for edge pieces only!"""
 
@@ -91,12 +91,14 @@ def get_snake_image(puzzles):
     for i, puzzle in enumerate(puzzles):
         image, connection_point, next_edge = place_puzzle(image, puzzle, connection_point, edge)
         edge = get_opposite_edge(next_edge)
-        # image_processing.view_image(image)
+        global snake_images
+        snake_images.append(image.copy())
+        image_processing.view_image(image)
     return image
 
 
 if __name__ == '__main__':
-    collection = PuzzleCollection.unpickle("2024-04-17processed_photo.pickle")
+    collection = PuzzleCollection.unpickle("2024-04-26_bambi.pickle")
     pieces = collection.pieces
     #edge_pieces = collection.partition_by_notch_type(NotchType.NONE)[0].pieces
 

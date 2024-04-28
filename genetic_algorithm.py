@@ -12,6 +12,7 @@ from teeth_detection import get_previous_type
 from matching_puzzles import is_connection_possible, MatchException
 from matching_puzzles import connect_puzzles
 
+session_id = hash(random.random())
 
 def edges_to_test(notches: dict):
     """get sides to compare the next piece with"""
@@ -26,6 +27,12 @@ def edges_to_test(notches: dict):
                 return get_next_type(type), get_previous_type(type)
 
 
+
+def calculate_similarity(similarity, length_similarity, n=2):
+    return (1 - (similarity + length_similarity) / 2) ** (1. / n)
+
+#def calculate_similarity(similarity, length_similarity):
+#    return 1 - (similarity + length_similarity) / 2
 
 fit_cache = {}
 def fitFun(puzzles, print_fits=False, get_fits=False):
@@ -43,7 +50,7 @@ def fitFun(puzzles, print_fits=False, get_fits=False):
             else:
                 is_connection_possible(piece, edge1, next_piece, edge2)
                 similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, edge2)
-                add = 1 - (similarity + length_similarity) / 2 # 0 is the best fit (the least distance)
+                add = calculate_similarity(similarity, length_similarity)
                 fit_cache[(piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation)] = add
         except MatchException:
             add = 1 # if the connection is not possible, the fit is the worst
@@ -117,6 +124,16 @@ class Evolution:
         father_slice = father_ids[a:b]
         daughter = [piece.deep_copy(False) for piece in mother if (piece.id not in father_slice)]
         daughter[a:a] = [piece.deep_copy(False) for piece in father if (piece.id in father_slice)]
+
+
+        # rotate the slices
+        if self.rotate:
+            if random.random() < self.mutation_rotate_chance:
+                r = random.randint(1, 3)
+                [piece.rotate(r) for piece in son if (piece.id in mother_slice)]
+            if random.random() < self.mutation_rotate_chance:
+                r = random.randint(1, 3)
+                [piece.rotate(r) for piece in daughter if (piece.id in father_slice)]
 
         # print(f"---crossover---\n\t{a,b}\n\t{mother_ids}\n\t{father_ids}\n\t{son_ids}\n\t{daughter_ids}\n")
 
@@ -195,6 +212,30 @@ def apply_images_to_puzzles(puzzles):
 
 
 edge_pieces = None
+
+
+def save_snake(fitness_logs, snake_animation, iteration):
+    max_width = max([image.shape[1] for image in snake_animation])
+    max_height = max([image.shape[0] for image in snake_animation])
+
+    snake_animation = [image_processing.expand_right_bottom(image, max_height, max_width) for image in snake_animation]
+    path = f"snakes/session{session_id}/iteration{iteration}"
+
+    for i, image in enumerate(snake_animation):
+        image_processing.save_image(f"{path}/piece{i}.png", image)
+
+    image_processing.save_gif(f"{path}/snake.gif", snake_animation)
+
+    # save the fitness as txt
+    with open(f"{path}/fitness.txt", "w") as file:
+        file.write(f"sum of fits: {best_fit:.3f}\n")
+        for log in fitness_logs:
+            file.write(log + "\n")
+
+    print(f"saved snake_it{iteration}")
+
+
+
 if __name__ == '__main__':
 
     puzzle_collection = PuzzleCollection.unpickle()
@@ -207,16 +248,17 @@ if __name__ == '__main__':
     num_of_iterations = 10000000
     num_of_chromosomes = 100
     num_of_genes = len(edge_pieces)
-    desired_fit = 0.4
+    desired_fit = 0.5
 
-    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.1, 0.1, 0.2, do_rotate=True)
+    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.05, 0.05, 0.2, do_rotate=True)
 
-
+    record_fit = num_of_genes*2
     for it in tqdm(range(num_of_iterations)):
         evolution.iteration()
 
         best_chromosome = evolution.get_best_chromosome()
         best_fit, fitness_logs = fitFun(best_chromosome, get_fits=True)
+
 
         if it % 100 == 0:
 
@@ -224,7 +266,9 @@ if __name__ == '__main__':
             print(f"best fit: {best_fit:.3f}", end=" ")
             print(f"piece ids: {[piece.id for piece in best_chromosome]}")
 
-        if (it % 1000 == 0) or (it == num_of_iterations - 1) or (best_fit < desired_fit):
+
+        if (best_fit < record_fit) or (it == num_of_iterations - 1) or (best_fit < desired_fit):
+            record_fit = best_fit
             fitFun(best_chromosome, print_fits=True)
             print(f"best fit: {best_fit:.3f}")
 
@@ -233,30 +277,21 @@ if __name__ == '__main__':
             #snake = puzzle_snake.get_snake_image(best_chromosome)
             #image_processing.view_image(image, f"fit={best_fit:.2f}, it={it}")
 
-            # resize images to the same size
-            max_width = max([image.shape[1] for image in snake_animation])
-            max_height = max([image.shape[0] for image in snake_animation])
-            for i, image in enumerate(snake_animation):
-                image = image_processing.expand_right_bottom(image, max_height, max_width)
-                image_processing.save_image(f"snakes/snake_it{it}/piece{i}.png", image)
-            #save the fitness as txt
-            with open(f"snakes/snake_it{it}/fitness.txt", "w") as file:
-                file.write(f"sum of fits: {best_fit:.3f}\n")
-                for log in fitness_logs:
-                    file.write(log + "\n")
-
-            print(f"saved snake_it{it}")
+            save_snake(fitness_logs, snake_animation, it)
             puzzle_snake.snake_images = []
 
-        if best_fit < desired_fit:
-            answer = input("Do you want to continue? (y/n)")
-            if answer.lower() == "n":
-                break
-            else:
-                desired_fit -= 0.1
-                if desired_fit < 0:
-                    desired_fit = 0
-                print(f"desired fit set to: {desired_fit:.3f}")
+            if best_fit < desired_fit:
+                answer = input("Do you want to continue? (y/n)")
+                if answer.lower() == "n":
+                    print("stopping...")
+                    image_processing.view_image(snake_animation[-1], "final snake")
+                    break
+                else:
+                    print("continuing...")
+                    desired_fit -= 0.1
+                    if desired_fit < 0:
+                        desired_fit = 0
+                    print(f"desired fit set to: {desired_fit:.3f}")
 
 
 

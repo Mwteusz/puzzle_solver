@@ -3,6 +3,7 @@ import random
 import cv2
 import numpy as np
 
+import genetic_algorithm
 import image_processing
 import teeth_detection
 from puzzle_extracting import ExtractedPuzzle, PuzzleCollection
@@ -102,8 +103,10 @@ def get_mask_xor_ratio(puzzle1, edge_type1, puzzle2, edge_type2) -> (float, np.n
     vector2 = get_vectors_from_corners(puzzle2.corners)[edge_type2]
     connection_point1 = vector1.get_middle()
     connection_point2 = vector2.get_middle()
-    puzzle1_mask = image_processing.erode(puzzle1.mask, 3)
-    puzzle2_mask = image_processing.erode(puzzle2.mask, 3)
+    puzzle1_mask = puzzle1.mask
+    puzzle2_mask = puzzle2.mask
+    #puzzle1_mask = image_processing.erode(puzzle1_mask, 3)
+    #puzzle2_mask = image_processing.erode(puzzle2_mask, 3)
     #puzzle1_mask = puzzle1.mask
     #puzzle2_mask = puzzle2.mask
     place_image_in_image(output_img1, puzzle1_mask, (output_img1.shape[1] // 2 - connection_point1[0], output_img1.shape[0] // 2 - connection_point1[1]))
@@ -112,6 +115,7 @@ def get_mask_xor_ratio(puzzle1, edge_type1, puzzle2, edge_type2) -> (float, np.n
     xor_img = np.bitwise_xor(output_img1, output_img2)
 
     close_up, mask = mask_puzzle_connection(xor_img, a = min(vector1.distance(), vector2.distance()))
+    #close_up = cv2.erode(close_up, np.ones((3, 3), np.uint8), iterations=1)
     similarity1 = 1 - np.count_nonzero(close_up) / np.count_nonzero(mask)
 
     #white_area = np.count_nonzero(puzzle1_mask) + np.count_nonzero(puzzle2_mask)
@@ -183,7 +187,10 @@ def connect_puzzles(puzzle1: ExtractedPuzzle, edge1: str, puzzle2: ExtractedPuzz
     #if not is_connection_possible(puzzle1, edge1, puzzle2, edge2): #should be checked before calling this function
     #    raise MatchException("connection is impossible!!")
     rotations = number_of_rotations(edge1, edge2)
+    #preview1 = puzzle1.get_preview()
     puzzle1 = puzzle1.get_rotated(rotations)
+    #preview2 = puzzle1.get_preview()
+    #image_processing.view_image(image_processing.images_to_image([preview1, preview2]), f"rotated puzzles {rotations}")
     edge1 = get_opposite_edge(edge2)
     return get_mask_xor_ratio(puzzle1, edge1, puzzle2, edge2)
 
@@ -214,7 +221,7 @@ def test_connect_puzzles(pieces, edges):
         is_connection_possible(puzzle1, edge1, puzzle2, edge2)
     except FlatSidesDoNotMatch as e:
         print(e)
-        #raise e
+        raise e
     except NotchesDoNotMatch as e:
         print(e)
         raise e
@@ -227,8 +234,8 @@ def test_connect_puzzles(pieces, edges):
 def test_random_pairs():
     print("testing random pairs!!")
     edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
-    puzzle_collection = PuzzleCollection.unpickle("2024-04-26_bambi.pickle")
-    puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.HOLE)
+    puzzle_collection = PuzzleCollection.unpickle()
+    puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.NONE)
     while True:
         try:
             random_indexes = random.sample(range(len(puzzle_collection.pieces)), 2)
@@ -236,16 +243,24 @@ def test_random_pairs():
             edge1, edge2 = random.choice(edges), random.choice(edges)
 
             test_pair(edge1, edge2, puzzle1, puzzle2, random_indexes)
+            #view_all_ids(puzzle_collection)
         except MatchException as e:
             print(f"\tError: {e}")
 
 
 def test_pair(edge1, edge2, puzzle1, puzzle2, indexes):
-    image_processing.view_image(puzzle1.get_preview(), edge1)
-    image_processing.view_image(puzzle2.get_preview(), edge2)
+    #image_processing.view_image(puzzle1.get_preview(), edge1)
+    #image_processing.view_image(puzzle2.get_preview(), edge2)
     similarity, length_similarity, imgs, rotate_value = test_connect_puzzles((puzzle1, puzzle2), (edge1, edge2))
+
+    print(f"testing pairs {indexes[0]} and {indexes[1]}, {edge1} and {edge2}")
+    image = image_processing.images_to_image([puzzle1.get_preview(), puzzle2.get_preview()])
+    image_processing.view_image(image, f"pair {indexes[0]} and {indexes[1]}")
+
     print(f"similarity = {similarity}, length_similarity = {length_similarity}, indexes = ({indexes[0]}, {indexes[1]}, \"{edge1}\", \"{edge2}\"),")
-    imgs.extend([puzzle1.get_rotated(rotate_value).get_preview(), puzzle2.get_preview()])
+    print(f"notches: {puzzle1.get_notch(edge1)} {puzzle2.get_notch(edge2)}, rotations_needed = {rotate_value}")
+    print(genetic_algorithm.calculate_similarity(similarity, length_similarity))
+    imgs.extend([puzzle1.get_preview(), puzzle2.get_preview()])
     result = image_processing.images_to_image(imgs)
     image_processing.view_image(result, similarity)
 
@@ -255,13 +270,21 @@ def test_pairs(pairs):
     for match in pairs:
         try:
             index1, index2, edge1, edge2 = match
-            puzzle_collection = PuzzleCollection.unpickle("2024-04-26_bambi.pickle")
-            puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.HOLE)
+            puzzle_collection = PuzzleCollection.unpickle()
+            puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.NONE)
             puzzle1, puzzle2 = puzzle_collection.pieces[index1], puzzle_collection.pieces[index2]
 
             test_pair(edge1, edge2, puzzle1, puzzle2, (index1, index2))
         except ValueError as e:
             print(f"\tError: {e}")
+
+
+def view_all_ids(puzzle_collection):
+    print(len(puzzle_collection.pieces))
+    for i, piece in enumerate(puzzle_collection.pieces):
+        print(f"viewing piece {i} with id {piece.id}")
+        image = image_processing.images_to_image([piece.get_preview(), piece.mask])
+        image_processing.view_image(image, f"piece {i}")
 
 
 if __name__ == '__main__':
@@ -285,9 +308,9 @@ if __name__ == '__main__':
         (22, 29, "RIGHT", "TOP"), #should not work
     ]
 
-    test_pairs([(18, 17, "BOTTOM", "BOTTOM")])
+    #test_pairs([(6, 0, "LEFT", "RIGHT")])
     #test_pairs(matching_pairs)
     #test_pairs(problematic_pairs)
-    #test_random_pairs()
+    test_random_pairs()
 
 

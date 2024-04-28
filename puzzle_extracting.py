@@ -14,7 +14,8 @@ from functools import reduce
 def view_corners(image, corners):
     preview = image.copy()
     for corner in corners:
-        cv2.circle(preview, corner, 5, (255, 0, 0), -1)
+        cv2.circle(preview, corner, 1, (0, 0, 255), -1)
+    preview = image_processing.resize_image(preview, scale=3, interpolation=cv2.INTER_NEAREST)
     image_processing.view_image(preview, title="corners")
 
 
@@ -58,6 +59,41 @@ def shift_notches(notches, rotations):
     return new_notches
 
 
+#cached_puzzles = {}
+
+
+def get_indexes_in_area(shape, corner, radius):
+    indexes = []
+    x, y = corner
+    for i in range(-radius, radius):
+        for j in range(-radius, radius):
+            if x + i < 0 or y + j < 0 or x + i >= shape[1] or y + j >= shape[0]:
+                continue
+            if (i**2 + j**2) < radius**2:
+                indexes.append((x + i, y + j))
+    return indexes
+
+
+def adjust_corners(corners, mask):
+    """moves the point to the farthest point from center in a small area around it"""
+
+    center = (mask.shape[1] // 2, mask.shape[0] // 2)
+    for i, corner in enumerate(corners):
+        area = get_indexes_in_area(mask.shape[:2], corner, 10)
+        max_distance = 0
+        farthest = corner
+        for index in area:
+            if mask[index[1], index[0]] == 0:
+                continue
+            distance = np.linalg.norm(np.array(index) - np.array(center))
+            if distance > max_distance:
+                max_distance = distance
+                farthest = index
+        corners[i] = farthest
+
+    return corners
+
+
 class ExtractedPuzzle:
     def __init__(self, notches: [NotchType] = None, image = None, mask = None, corners = None, id=None, rotation=0):
         self.notches = notches
@@ -81,17 +117,31 @@ class ExtractedPuzzle:
         self.rotation += rotations
         self.rotation %= 4
 
+        #key = (self.id, self.rotation)
+        #if key in cached_puzzles:
+        #    self.image, self.mask, self.corners, self.notches = cached_puzzles[key]
+        #    return
+
         if self.image is not None:
             self.image = rotate_90(self.image, rotations)
         self.mask = rotate_90(self.mask, rotations)
         self.corners = rotate_corners(self.corners, rotations, self.mask.shape[:2])
+        #adjust_corners(self.corners, self.mask)
         self.notches = shift_notches(self.notches, rotations)
+        #cached_puzzles[key] = (self.image, self.mask, self.corners, self.notches)
+
+
 
     def deep_copy(self, copy_image=True):
         """returns a deep copy of the object, if copy_image is True, the image is copied as well, otherwise it is None"""
         new_corners = [(corner[0], corner[1]) for corner in self.corners]
         image_copy = None if (copy_image is False or self.image is None) else self.image.copy()
         return ExtractedPuzzle(notches=self.notches.copy(), image=image_copy, mask=self.mask.copy(), corners=new_corners, id=self.id, rotation=self.rotation)
+    #def fake_copy(self):
+    #    """returns a copy of the object, but not the fields"""
+    #    image = self.image if self.image is not None else None
+    #    return ExtractedPuzzle(notches=self.notches, image=image, mask=self.mask, corners=self.corners, id=self.id, rotation=self.rotation)
+
 
 
     def find_corners(self):
@@ -134,6 +184,9 @@ class ExtractedPuzzle:
         if len(self.corners) != 4:
             image_processing.view_image(self.image, title="not enough corners found")
             raise Exception(f"4 corners should be found, but found: {len(self.corners)}")
+        #view_corners(self.image, self.corners)
+        adjust_corners(self.corners, self.mask)
+        #view_corners(self.image, self.corners)
 
     def align_to_grid(self):
         mask = self.mask
@@ -189,6 +242,7 @@ class ExtractedPuzzle:
         return image
 
     def get_rotated(self, rotations, copy_image=True):
+
         rotated = self.deep_copy(copy_image)
         rotated.rotate(rotations)
         return rotated
@@ -239,6 +293,7 @@ class PuzzleCollection:
                 progress_bar.update()
                 puzzle.find_corners()
             except Exception as e:
+                raise e
                 self.pieces.remove(puzzle)
                 progress_bar.print_info(f"Removed puzzle #{i}, no corners found: {e}")
                 image_processing.view_image(puzzle.image, title="puzzle")
@@ -404,8 +459,8 @@ def images_to_puzzle_collection(puzzle_images, puzzle_masks):
 
 
 if __name__ == '__main__':
+    #name = "scattered_jaszczur_v=4_r=False"
     name = "scattered_bliss_v=3_r=False"
-    #name = "processed_photo"
     path = f"results/{name}.png"
 
     image = image_processing.load_image(path)

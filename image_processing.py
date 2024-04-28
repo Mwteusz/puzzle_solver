@@ -217,3 +217,10 @@ def expand_right_bottom(image, max_height, max_width):
     new_image = np.zeros((max_height, max_width, 3), dtype=np.uint8)
     new_image[:image.shape[0], :image.shape[1]] = image
     return new_image
+
+def draw_arrow(image, start, end,color=(255,255,255), thickness=2, type="arrow"):
+    if type == "arrow":
+        image = cv2.arrowedLine(image, start, end, color, thickness)
+    elif type == "line":
+        image = cv2.line(image, start, end, color, thickness)
+    return image

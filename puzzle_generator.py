@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 import scatter
 import image_processing
+import teeth_detection
 from puzzle_extracting import PuzzleCollection
 
 
@@ -231,7 +232,61 @@ def remove_zeros_from_rgb(image):
     return cv2.merge(new_colors)
 
 
-def create_puzzles(image, puzzle_size)->tuple[list[np.ndarray], tuple[int, int]]:
+
+
+
+def draw_graph(nodes, all_edges, grid_size_x, grid_size_y, type=None, do_puzzles=True):
+    max_width = max([node.piece.puzzle_image.shape[1] for node in nodes.flatten()])
+    max_height = max([node.piece.puzzle_image.shape[0] for node in nodes.flatten()])
+
+    image = np.ones((max_height * grid_size_y, max_width * grid_size_x, 3), dtype=np.uint8) * 255
+    for x in range(grid_size_x):
+        for y in range(grid_size_y):
+            start_x = x * max_width
+            start_y = y * max_height
+            if do_puzzles:
+                node_image = nodes[x, y].piece.puzzle_image
+                image[start_y:start_y + node_image.shape[0], start_x:start_x + node_image.shape[1]] = np.where(node_image > 0, node_image, image[start_y:start_y + node_image.shape[0], start_x:start_x + node_image.shape[1]])
+            else:
+                radius = int(((max_width * math.sqrt(2)) / 4) * 0.6)
+                node_image = cv2.circle(np.ones((max_height, max_width, 3), dtype=np.uint8)*255, (max_width//2, max_height//2), radius, (0,0,0),8)
+                #image_processing.view_image(node_image, "node_image")
+                image[start_y:start_y + node_image.shape[0], start_x:start_x + node_image.shape[1]] = node_image
+
+    for edge in all_edges:
+
+        if edge.piece_with_hole is not None:
+            x2, y2 = edge.piece_with_hole.piece.x, edge.piece_with_hole.piece.y
+            nodes = [edge.node1, edge.node2]
+            #get the other node
+            x1, y1 = None, None
+            for node in nodes:
+                if not node.piece.equals(edge.piece_with_hole.piece):
+                    x1, y1 = node.piece.x, node.piece.y
+        else:
+            x1, y1 = edge.node1.piece.x, edge.node1.piece.y
+            x2, y2 = edge.node2.piece.x, edge.node2.piece.y
+
+
+        start_x = x1 * max_width + max_width // 2
+        start_y = y1 * max_height + max_height // 2
+        end_x = x2 * max_width + max_width // 2
+        end_y = y2 * max_height + max_height // 2
+
+        vector = teeth_detection.Vector((start_x, start_y), (end_x, end_y))
+        center = vector.get_middle()
+        vector.point1 = teeth_detection.move_towards(vector.point1, center, 0.5)
+        vector.point2 = teeth_detection.move_towards(vector.point2, center, 0.5)
+
+
+        if type is not None:
+            image = draw_arrow(image, vector.point1, vector.point2, color=(255,255,255), thickness=16, type=type)
+            image = draw_arrow(image, vector.point1, vector.point2, color=(0,0,0),thickness=8, type=type)
+
+    return image
+
+
+def create_puzzles(image, puzzle_size, animate:bool = False)->tuple[list[np.ndarray], tuple[int, int]]:
     """:returns: list of piece images, grid size"""
     image = remove_zeros_from_rgb(image)
     puzzle_grid = image_to_pieces(image, puzzle_size)
@@ -241,6 +296,16 @@ def create_puzzles(image, puzzle_size)->tuple[list[np.ndarray], tuple[int, int]]
     nodes = create_nodes(puzzle_grid, grid_size_x, grid_size_y)
     all_edges = create_edges(nodes, grid_size_x, grid_size_y)
     carve_knobs(all_edges)
+    if animate:
+        graph_animation = [
+           draw_graph(nodes, all_edges, grid_size_x, grid_size_y, type=None, do_puzzles=False),
+           draw_graph(nodes, all_edges, grid_size_x, grid_size_y, type="arrow", do_puzzles=False),
+           draw_graph(nodes, all_edges, grid_size_x, grid_size_y, type="arrow", do_puzzles=True),
+           draw_graph(nodes, all_edges, grid_size_x, grid_size_y, type=None, do_puzzles=True)
+        ]
+        for i, graph_image in enumerate(graph_animation):
+            image_processing.save_image(f"animation/graph{i}.png", graph_image)
+
     pieces = get_pieces_from_graph(nodes)
     images = [piece.puzzle_image for piece in pieces]
     #save_puzzles(nodes, grid_size_x, grid_size_y)
@@ -264,9 +329,9 @@ def image_to_puzzles(path = None, vertical_puzzle_size = 5, image = None, force=
 
 
 if __name__ == '__main__':
-    name="bliss"
+    name="monalisa"
     do_rotate = False
-    v=3
+    v=5
 
     image = image_processing.load_image(f"input_photos/{name}.png")
     puzzle_images, puzzle_masks = image_to_puzzles(image=image, vertical_puzzle_size=v, force=True)
@@ -276,8 +341,8 @@ if __name__ == '__main__':
 
     scattered_puzzle = scatter.scatter_pieces((image.shape[0] * 2, image.shape[1] * 2), pieces=puzzle_images, minimum_distance=10,rotate=do_rotate)
     image_processing.view_image(scattered_puzzle, "scattered puzzle")
-    image_processing.save_image(f"results/scattered_{name}_v={v}_r={str(do_rotate)}.png", scattered_puzzle)
-    image_processing.save_image(f"results/scattered_{name}_v={v}_r={str(do_rotate)}_mask.png", image_processing.threshold(scattered_puzzle, 0))
+    #image_processing.save_image(f"results/scattered_{name}_v={v}_r={str(do_rotate)}.png", scattered_puzzle)
+    #image_processing.save_image(f"results/scattered_{name}_v={v}_r={str(do_rotate)}_mask.png", image_processing.threshold(scattered_puzzle, 0))
 
 
 

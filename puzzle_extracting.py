@@ -390,8 +390,8 @@ def rotate(image, angle, enlarge=True):
     return rotated_image
 
 def rotate_90(image, rotations):
-    rotations = 4 - rotations #convert clockwise to counterclockwise
-    return np.rot90(image, rotations)
+    rotationsIn = 4 - rotations #convert clockwise to counterclockwise
+    return np.rot90(image, rotationsIn)
 
 
 
@@ -469,7 +469,7 @@ if __name__ == '__main__':
     mask = image_processing.resize_image(mask, 0.5)
 
     timer = timer.Timer()
-    puzzle_collection = extract_puzzles(image, mask, rotate=False)
+    puzzle_collection = extract_puzzles(image, mask, rotate=True)
     timer.print("extracting puzzles")
 
     puzzle_collection.pickle(suffix=f"_{name}")

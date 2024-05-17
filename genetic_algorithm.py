@@ -9,7 +9,7 @@ from puzzle_extracting import ExtractedPuzzle, PuzzleCollection
 from teeth_detection import NotchType
 from teeth_detection import get_next_type
 from teeth_detection import get_previous_type
-from matching_puzzles import is_connection_possible, MatchException
+from matching_puzzles import is_connection_possible, MatchException, number_of_rotations
 from matching_puzzles import connect_puzzles
 
 session_id = hash(random.random())
@@ -38,24 +38,39 @@ fit_cache = {}
 def fitFun(puzzles, print_fits=False, get_fits=False):
     score = 0
 
+    edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
+
     fits = []
     for i, piece in enumerate(puzzles):
         next_piece= puzzles[(i+1)%len(puzzles)]
 
         edge1, edge2 = edges_to_test(piece.notches)
-        try:
-            if (piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation) in fit_cache:
-                add = fit_cache[(piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation)]
-                #print("cached:",len(fit_cache))
-            else:
-                is_connection_possible(piece, edge1, next_piece, edge2)
-                similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, edge2)
-                add = calculate_similarity(similarity, length_similarity)
-                fit_cache[(piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation)] = add
-        except MatchException:
-            add = 1 # if the connection is not possible, the fit is the worst
 
-        score += add
+###########
+        best_fit = 1
+        best_edge = edges[0]
+
+        for tested_edge in edges:
+
+            try:
+                if (piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation) in fit_cache:
+                    add = fit_cache[(piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation)]
+                    #print("cached:",len(fit_cache))
+                else:
+                    is_connection_possible(piece, edge1, next_piece, tested_edge)
+                    similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, tested_edge)
+                    add = calculate_similarity(similarity, length_similarity)
+                    fit_cache[(piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation)] = add
+            except MatchException:
+                add = 1 # if the connection is not possible, the fit is the worst
+
+            if add < best_fit:
+                best_fit = add
+                best_edge = tested_edge
+        rotations = number_of_rotations(edge1, best_edge)
+        next_piece.rotate(rotations)
+###########
+        score += best_fit
         if get_fits or print_fits:
             fit_string = f"id1:{piece.id}, rot1:{piece.rotation}, id2:{next_piece.id}, rot2:{next_piece.rotation}, fit:{add:.2f}"
             fits.append(fit_string)
@@ -127,13 +142,13 @@ class Evolution:
 
 
         # rotate the slices
-        if self.rotate:
-            if random.random() < self.mutation_rotate_chance:
-                r = random.randint(1, 3)
-                [piece.rotate(r) for piece in son if (piece.id in mother_slice)]
-            if random.random() < self.mutation_rotate_chance:
-                r = random.randint(1, 3)
-                [piece.rotate(r) for piece in daughter if (piece.id in father_slice)]
+        #if self.rotate:
+        #    if random.random() < self.mutation_rotate_chance:
+        #        r = random.randint(1, 3)
+        #        [piece.rotate(r) for piece in son if (piece.id in mother_slice)]
+        #    if random.random() < self.mutation_rotate_chance:
+        #        r = random.randint(1, 3)
+        #        [piece.rotate(r) for piece in daughter if (piece.id in father_slice)]
 
         # print(f"---crossover---\n\t{a,b}\n\t{mother_ids}\n\t{father_ids}\n\t{son_ids}\n\t{daughter_ids}\n")
 
@@ -241,7 +256,7 @@ if __name__ == '__main__':
     puzzle_collection = PuzzleCollection.unpickle()
     puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
     puzzle_collection.set_ids()
-    image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")
+    #image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")
     edge_pieces = puzzle_collection.pieces
 
 
@@ -250,7 +265,7 @@ if __name__ == '__main__':
     num_of_genes = len(edge_pieces)
     desired_fit = 0.5
 
-    evolution = Evolution(num_of_chromosomes, num_of_genes, 0.05, 0.05, 0.2, do_rotate=True)
+    evolution = Evolution(num_of_chromosomes, num_of_genes, 0, 0.1, 0.2, do_rotate=True)
 
     record_fit = num_of_genes*2
     for it in tqdm(range(num_of_iterations)):
@@ -269,7 +284,7 @@ if __name__ == '__main__':
 
         if (best_fit < record_fit) or (it == num_of_iterations - 1) or (best_fit < desired_fit):
             record_fit = best_fit
-            fitFun(best_chromosome, print_fits=True)
+            fitFun(best_chromosome, print_fits=False)
             print(f"best fit: {best_fit:.3f}")
 
             apply_images_to_puzzles(best_chromosome)

@@ -58,8 +58,8 @@ def fitFun(puzzles, print_fits=False, get_fits=False):
                     #print("cached:",len(fit_cache))
                 else:
                     is_connection_possible(piece, edge1, next_piece, tested_edge)
-                    similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, tested_edge)
-                    add = calculate_similarity(similarity, length_similarity)
+                    similarity, length_similarity, image_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, tested_edge)
+                    add = calculate_similarity(similarity, length_similarity, image_similarity)
                     fit_cache[(piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation)] = add
             except MatchException:
                 add = 1 # if the connection is not possible, the fit is the worst
@@ -101,9 +101,9 @@ class Evolution:
 
         for i in range(num_of_chromosomes):
             if do_rotate:
-                filtered_copy = [piece.get_rotated(random.randint(0, 3), False) for piece in edge_pieces]
+                filtered_copy = [piece.get_rotated(random.randint(0, 3), True) for piece in edge_pieces]
             else:
-                filtered_copy = [piece.deep_copy(False) for piece in edge_pieces]
+                filtered_copy = [piece.deep_copy(True) for piece in edge_pieces]
             random.shuffle(filtered_copy)
             self.chromosomes.append(filtered_copy)
 
@@ -119,7 +119,7 @@ class Evolution:
             for n in fitness:
                 sum += n
                 if num < sum:
-                    new_chromosomes.append([piece.deep_copy(False) for piece in chromosome])
+                    new_chromosomes.append([piece.deep_copy(True) for piece in chromosome])
                     break
                 index += 1
 
@@ -133,12 +133,12 @@ class Evolution:
         a, b = min(a, b), max(a, b) # get slice bounds
 
         mother_slice = mother_ids[a:b] # get ids of the slice
-        son = [piece.deep_copy(False) for piece in father if (piece.id not in mother_slice)] # copy father's pieces that are not in the slice
-        son[a:a] = [piece.deep_copy(False) for piece in mother if (piece.id in mother_slice)] # insert mother's slice into son
+        son = [piece.deep_copy(True) for piece in father if (piece.id not in mother_slice)] # copy father's pieces that are not in the slice
+        son[a:a] = [piece.deep_copy(True) for piece in mother if (piece.id in mother_slice)] # insert mother's slice into son
 
         father_slice = father_ids[a:b]
-        daughter = [piece.deep_copy(False) for piece in mother if (piece.id not in father_slice)]
-        daughter[a:a] = [piece.deep_copy(False) for piece in father if (piece.id in father_slice)]
+        daughter = [piece.deep_copy(True) for piece in mother if (piece.id not in father_slice)]
+        daughter[a:a] = [piece.deep_copy(True) for piece in father if (piece.id in father_slice)]
 
 
         # rotate the slices

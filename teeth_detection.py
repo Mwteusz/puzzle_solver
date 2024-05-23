@@ -57,19 +57,6 @@ class Vector:
     def __str__(self):
         return f"Vector: {self.point1} -> {self.point2}"
 
-    def normalise_extreme(self):
-        x = self.point1[0] - self.point2[0]
-        y = self.point1[1] - self.point2[1]
-
-        abs_x = abs(x)
-        abs_y = abs(y)
-        if abs_y > abs_x:
-            return (0, 1) if y < 0 else (0, -1)
-        elif abs_x > abs_y:
-            return (1, 0) if x < 0 else (-1, 0)
-        return (0, 0)
-
-
 def move_towards(point1, center, percentage=0.1):
     x1, y1 = point1
     x2, y2 = center

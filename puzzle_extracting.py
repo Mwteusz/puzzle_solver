@@ -460,13 +460,13 @@ def images_to_puzzle_collection(puzzle_images, puzzle_masks):
 
 if __name__ == '__main__':
     #name = "scattered_jaszczur_v=4_r=False"
-    name = "scattered_bliss_v=3_r=False"
+    name = "scattered_bliss_v=4_r=True"
     path = f"results/{name}.png"
 
     image = image_processing.load_image(path)
-    image = image_processing.resize_image(image, 0.5)
+    #image = image_processing.resize_image(image, 0.5)
     mask = image_processing.load_image(path.replace(".", "_mask."))
-    mask = image_processing.resize_image(mask, 0.5)
+    #mask = image_processing.resize_image(mask, 0.5)
 
     timer = timer.Timer()
     puzzle_collection = extract_puzzles(image, mask, rotate=True)

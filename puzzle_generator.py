@@ -264,7 +264,7 @@ def image_to_puzzles(path = None, vertical_puzzle_size = 5, image = None, force=
 
 
 if __name__ == '__main__':
-    name="hentai"
+    name="bliss"
     do_rotate = True
     v=4
 

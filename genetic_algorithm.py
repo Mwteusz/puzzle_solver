@@ -28,7 +28,7 @@ def edges_to_test(notches: dict):
 
 
 
-def calculate_similarity(similarity, length_similarity, n=2):
+def calculate_similarity(similarity, length_similarity, image_similarity ,n=2):
     return (1 - (similarity + length_similarity) / 2) ** (1. / n)
 
 #def calculate_similarity(similarity, length_similarity):
@@ -253,7 +253,7 @@ def save_snake(fitness_logs, snake_animation, iteration):
 
 if __name__ == '__main__':
 
-    puzzle_collection = PuzzleCollection.unpickle()
+    puzzle_collection = PuzzleCollection.unpickle("2024-05-23_scattered_bliss_v=4_r=True.pickle")
     puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
     puzzle_collection.set_ids()
     #image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")

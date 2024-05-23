@@ -62,7 +62,6 @@ def get_opposite_edge(edge):
 
 
 def place_image_in_image(background, image, point):
-    print(background.shape)
     if len(image.shape) == 2:
         shape = image.shape
         start_x, start_y = point
@@ -91,44 +90,103 @@ def mask_puzzle_connection(image, a, padding=0.05) -> (np.ndarray, np.ndarray):
     return cv2.bitwise_and(~cropped, mask), mask
 
 
-def travel(contours, vector: Vector):
-    """
-    :param contours: canny image
-    :param vector: collection of 2 points: start and end
-    """
-    structural_element = np.zeros((3, 3))
-    start = vector.point1
-    end = vector.point2
-    path = [] #list of coordinates
-    normalised_vector = vector.normalise_extreme()
+def find_foremost_white_pixel(bounds, mask, y_start):
+    start = bounds[0]
+    end = bounds[1]
+    if start[0] > end[0]:
+        start, end = end, start
 
+    loop = range(0)
+    if y_start == "TOP":
+        loop = range(0, mask.shape[0] // 2)
+    if y_start == "BOTTOM":
+        loop = range(mask.shape[0] - 1, mask.shape[0] // 2, -1)
+
+    yList = []
+    step = max(int(mask.shape[0] * 0.03), 3)
+    for x in range(start[0], end[0], step):
+        for y in loop:
+            if mask[y][x] == 255:
+                yList.append((x, y))
+                break
+
+    return yList
+
+
+def avg_BGR(image, x, y):
+    region = image[y:y + 3, x:x + 3]
+    avg_rgb = np.mean(region, axis=(0, 1))
+
+    return avg_rgb
+
+
+def avg_puzzle_area(bottom_piece, i, puzzle1_white_pixel, puzzle2_white_pixel, top_piece):
+    x1 = puzzle1_white_pixel[i][0]
+    y1 = puzzle1_white_pixel[i][1]
+    x2 = puzzle2_white_pixel[i][0]
+    y2 = puzzle2_white_pixel[i][1]
+    offset = int(bottom_piece.image.shape[0] * 0.03)
+    avg_bgr_puzzle1 = avg_BGR(top_piece.image, x1, y1 - offset)
+    avg_bgr_puzzle2 = avg_BGR(bottom_piece.image, x2, y2 + offset)
+    return (avg_bgr_puzzle1, avg_bgr_puzzle2)
+
+
+def count_distances(puzzle1_white_pixel, puzzle2_white_pixel, top_piece, bottom_piece):
+    distance = []
+    length = min(len(puzzle1_white_pixel), len(puzzle2_white_pixel))
+    for i in range(length):
+        avg_puzzle = avg_puzzle_area(bottom_piece, i, puzzle1_white_pixel, puzzle2_white_pixel, top_piece)
+        distance.append(np.linalg.norm(np.array(avg_puzzle[0]) - np.array(avg_puzzle[1])))
+    return distance
+
+
+def scale_result(avg_distance):
+    min = 15
+    max = 150
+    scaled_distance = np.clip((avg_distance - min) / (max - min), 0, 1)
+    return scaled_distance
 
 
 def calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2):
+    n1 = number_of_rotations(edge_type1, "TOP")
+    top_piece = puzzle1.get_rotated(n1)
+    n2 = number_of_rotations(edge_type2, "BOTTOM")
+    bottom_piece = puzzle2.get_rotated(n2)
+
+
+
+    vector1 = get_vectors_from_corners(top_piece.corners)["BOTTOM"]
+
+    puzzle1_white_pixel = find_foremost_white_pixel(bounds=(vector1.point1, vector1.point2),
+                                                    mask=top_piece.mask, y_start="BOTTOM")
+
+    vector2 = get_vectors_from_corners(bottom_piece.corners)["TOP"]
+    puzzle2_white_pixel = find_foremost_white_pixel(bounds=(vector2.point1, vector2.point2),
+                                                    mask=bottom_piece.mask, y_start="TOP")
+
     shape1, shape2 = puzzle1.mask.shape, puzzle2.mask.shape
     image_shape = shape1[0] + shape2[0], shape1[1] + shape2[1], 3  # RGB
-    print("shape", image_shape)
+    # print("shape", image_shape)
+
+
+    distances = count_distances(puzzle1_white_pixel, puzzle2_white_pixel, top_piece, bottom_piece)
+    avg_distance = np.mean(distances)
+
+    scaled_distance = scale_result(avg_distance)
+
+    # print(avg_distance, scaled_distance)
 
     background = np.zeros(image_shape, dtype=np.uint8)
-    vector1 = get_vectors_from_corners(puzzle1.corners)[edge_type1]
-    vector2 = get_vectors_from_corners(puzzle2.corners)[edge_type2]
-
-    # test canny
-    canny = cv2.Canny(puzzle1.mask, 10, 200)
-    travel(canny, vector1)
-
-    image_processing.view_image(canny)
-
     connection_point1 = vector1.get_middle()
     connection_point2 = vector2.get_middle()
 
-    place_image_in_image(background, puzzle1.image, (
-    background.shape[1] // 2 - connection_point1[0], background.shape[0] // 2 - connection_point1[1]))
-    place_image_in_image(background, puzzle2.image, (
-    background.shape[1] // 2 - connection_point2[0], background.shape[0] // 2 - connection_point2[1]))
+    place_image_in_image(background, top_piece.image, (
+        background.shape[1] // 2 - connection_point1[0], background.shape[0] // 2 - connection_point1[1]))
+    place_image_in_image(background, bottom_piece.image, (
+        background.shape[1] // 2 - connection_point2[0], background.shape[0] // 2 - connection_point2[1]))
+    # image_processing.view_image(background, title=str(scaled_distance))
 
-    image_processing.view_image(background, title="SIEMA")
-    return 1
+    return scaled_distance
 
 
 def strip_colors(image):
@@ -160,9 +218,9 @@ def get_mask_xor_ratio(puzzle1, edge_type1, puzzle2, edge_type2):
     # puzzle1_mask = puzzle1.mask
     # puzzle2_mask = puzzle2.mask
     place_image_in_image(output_img1, puzzle1_mask, (
-    output_img1.shape[1] // 2 - connection_point1[0], output_img1.shape[0] // 2 - connection_point1[1]))
+        output_img1.shape[1] // 2 - connection_point1[0], output_img1.shape[0] // 2 - connection_point1[1]))
     place_image_in_image(output_img2, puzzle2_mask, (
-    output_img2.shape[1] // 2 - connection_point2[0], output_img2.shape[0] // 2 - connection_point2[1]))
+        output_img2.shape[1] // 2 - connection_point2[0], output_img2.shape[0] // 2 - connection_point2[1]))
 
     xor_img = np.bitwise_xor(output_img1, output_img2)
 

@@ -176,14 +176,14 @@ def calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2):
 
     # print(avg_distance, scaled_distance)
 
-    background = np.zeros(image_shape, dtype=np.uint8)
-    connection_point1 = vector1.get_middle()
-    connection_point2 = vector2.get_middle()
+    #background = np.zeros(image_shape, dtype=np.uint8)
+    #connection_point1 = vector1.get_middle()
+    #connection_point2 = vector2.get_middle()
 
-    place_image_in_image(background, top_piece.image, (
-        background.shape[1] // 2 - connection_point1[0], background.shape[0] // 2 - connection_point1[1]))
-    place_image_in_image(background, bottom_piece.image, (
-        background.shape[1] // 2 - connection_point2[0], background.shape[0] // 2 - connection_point2[1]))
+    #place_image_in_image(background, top_piece.image, (
+    #    background.shape[1] // 2 - connection_point1[0], background.shape[0] // 2 - connection_point1[1]))
+    #place_image_in_image(background, bottom_piece.image, (
+    #    background.shape[1] // 2 - connection_point2[0], background.shape[0] // 2 - connection_point2[1]))
     # image_processing.view_image(background, title=str(scaled_distance))
 
     return scaled_distance
@@ -240,7 +240,7 @@ def get_mask_xor_ratio(puzzle1, edge_type1, puzzle2, edge_type2):
     # print(f"compare similarities: similarity1={similarity1:.4}, similarity2={similarity2:.4}, similarity3={similarity3:.4}")
     length_similarity = 1 - abs(vector1.distance() - vector2.distance()) / max(vector1.distance(), vector2.distance())
 
-    image_similarity = calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2)
+    image_similarity = 0#calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2) #TODO
 
     return similarity1, length_similarity, image_similarity, xor_img, close_up
 

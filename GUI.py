@@ -31,7 +31,8 @@ class MainWindow(QMainWindow):
         self.image_label.setFixedSize(600, 400)
         self.image_label.setAcceptDrops(True)
         self.layout.setAlignment(Qt.AlignCenter)
-        self.image_label.setStyleSheet("font-size: 13px; border: 2px solid #343434; background-color: #2C2C2C; color: #DDDDDD")
+        self.image_label.setStyleSheet(
+            "font-size: 13px; border: 2px solid #343434; background-color: #2C2C2C; color: #DDDDDD")
 
         # Horizontal layout for buttons
         self.button_layout = QHBoxLayout()
@@ -42,25 +43,29 @@ class MainWindow(QMainWindow):
         self.style_buttons()
 
         # Adding buttons to the horizontal layout
-        self.button_layout.addWidget(self.btn_add_file,)
+        self.button_layout.addWidget(self.btn_add_file, )
         self.button_layout.addWidget(self.btn_solve_puzzle)
 
         # Add widgets to main layout
         self.layout.addWidget(self.image_label)
-        self.layout.addLayout(self.button_layout)  # Add the horizontal layout to the main layout
+        self.layout.addLayout(self.button_layout)
 
         # Connect buttons to functions
         self.btn_add_file.clicked.connect(self.add_file)
         self.btn_solve_puzzle.clicked.connect(self.solve_puzzle)
 
+        # Variable to hold the current file path
+        self.current_file_path = None
+
     def add_file(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)")
+        self.current_file_path = file_name
         if file_name:
             self.display_image(file_name)
 
     def solve_puzzle(self):
-        # Placeholder for puzzle solving logic
-        print("Solving puzzle...")
+        # Display a loading message or screen
+        self.image_label.setText(f"Solving the puzzle {self.current_file_path}, please wait...")
 
     def display_image(self, file_path):
         pixmap = QPixmap(file_path)

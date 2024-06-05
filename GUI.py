@@ -93,44 +93,8 @@ class MainWindow(QMainWindow):
         big_preview = puzzle_collection.get_preview()
         image_processing.view_image(big_preview, title="log")
 
-        self.genetic_solve(puzzle_collection)
+        genetic_solve(puzzle_collection)
         self.display_image("/results/guiResult.png")
-
-    def genetic_solve(self, puzzle_collection):
-        puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
-        puzzle_collection.set_ids()
-        # image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")
-        edge_pieces = puzzle_collection.pieces
-
-        num_of_iterations = 100
-        num_of_chromosomes = 100
-        num_of_genes = len(edge_pieces)
-        desired_fit = 0.5
-
-        evolution = Evolution(num_of_chromosomes, num_of_genes, 0, 0.1, 0.2, do_rotate=True)
-
-        record_fit = num_of_genes * 2
-        for it in tqdm(range(num_of_iterations)):
-            evolution.iteration()
-
-            best_chromosome = evolution.get_best_chromosome()
-            best_fit, fitness_logs = fitFun(best_chromosome, get_fits=True)
-
-            if it % 100 == 0:
-                print(f" sum of fits: {evolution.get_sum_of_fits():.2f}", end=" ")
-                print(f"best fit: {best_fit:.3f}", end=" ")
-                print(f"piece ids: {[piece.id for piece in best_chromosome]}")
-
-            if (best_fit < record_fit) or (it == num_of_iterations - 1) or (best_fit < desired_fit):
-                record_fit = best_fit
-                fitFun(best_chromosome, print_fits=False)
-                print(f"best fit: {best_fit:.3f}")
-
-        best_chromosome = evolution.get_best_chromosome()
-        apply_images_to_puzzles(best_chromosome)
-        snake_animation = puzzle_snake.get_snake_animation(best_chromosome, show_animation=False)
-        print("saving")
-        image_processing.save_image("./results/guiResult.png", snake_animation[-1])
 
     def display_image(self, file_path):
         pixmap = QPixmap(file_path)
@@ -171,6 +135,43 @@ class MainWindow(QMainWindow):
         """
         self.btn_add_file.setStyleSheet(button_style)
         self.btn_solve_puzzle.setStyleSheet(button_style)
+
+
+def genetic_solve(puzzle_collection):
+    puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
+    puzzle_collection.set_ids()
+    # image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")
+    edge_pieces = puzzle_collection.pieces
+
+    num_of_iterations = 100
+    num_of_chromosomes = 100
+    num_of_genes = len(edge_pieces)
+    desired_fit = 0.5
+
+    evolution = Evolution(num_of_chromosomes, num_of_genes, 0, 0.1, 0.2, do_rotate=True)
+
+    record_fit = num_of_genes * 2
+    for it in tqdm(range(num_of_iterations)):
+        evolution.iteration()
+
+        best_chromosome = evolution.get_best_chromosome()
+        best_fit, fitness_logs = fitFun(best_chromosome, get_fits=True)
+
+        if it % 100 == 0:
+            print(f" sum of fits: {evolution.get_sum_of_fits():.2f}", end=" ")
+            print(f"best fit: {best_fit:.3f}", end=" ")
+            print(f"piece ids: {[piece.id for piece in best_chromosome]}")
+
+        if (best_fit < record_fit) or (it == num_of_iterations - 1) or (best_fit < desired_fit):
+            record_fit = best_fit
+            fitFun(best_chromosome, print_fits=False)
+            print(f"best fit: {best_fit:.3f}")
+
+    best_chromosome = evolution.get_best_chromosome()
+    apply_images_to_puzzles(best_chromosome)
+    snake_animation = puzzle_snake.get_snake_animation(best_chromosome, show_animation=False)
+    print("saving")
+    image_processing.save_image("./results/guiResult.png", snake_animation[-1])
 
 
 def launch_application():

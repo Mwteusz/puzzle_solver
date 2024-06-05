@@ -112,9 +112,15 @@ class MainWindow(QMainWindow):
         self.btn_solve_puzzle.setStyleSheet(button_style)
 
 
-if __name__ == '__main__':
+def launch_application():
+    # Create an instance of QApplication
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon('./logo/logo.ico'))
-    window = MainWindow()
-    window.show()
+    # Create an instance of main window
+    main_window = MainWindow()
+    main_window.show()
+    # Execute the application
     sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    launch_application()

@@ -1,4 +1,5 @@
 import sys
+import threading
 
 from PyQt5.QtGui import QIcon
 from qtpy.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -52,7 +53,7 @@ class MainWindow(QMainWindow):
         self.style_buttons()
 
         # Adding buttons to the horizontal layout
-        self.button_layout.addWidget(self.btn_add_file, )
+        self.button_layout.addWidget(self.btn_add_file)
         self.button_layout.addWidget(self.btn_solve_puzzle)
 
         # Add widgets to main layout
@@ -78,8 +79,7 @@ class MainWindow(QMainWindow):
             self.image_label.setText(f"select file by selecting image in \"Add file\" button")
         else:
             self.image_label.setText(f"Solving the puzzle {self.current_file_path}, please wait...")
-            self.solve_puzzle()
-
+            threading.Thread(target=self.solve_puzzle).start()
 
     def solve_puzzle(self):
         # name = "scattered_jaszczur_v=4_r=False"
@@ -93,8 +93,8 @@ class MainWindow(QMainWindow):
         big_preview = puzzle_collection.get_preview()
         image_processing.view_image(big_preview, title="log")
 
-        result = self.genetic_solve(puzzle_collection)
-        self.display_image(result)
+        self.genetic_solve(puzzle_collection)
+        self.display_image("/results/guiResult.png")
 
     def genetic_solve(self, puzzle_collection):
         puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
@@ -126,31 +126,11 @@ class MainWindow(QMainWindow):
                 fitFun(best_chromosome, print_fits=False)
                 print(f"best fit: {best_fit:.3f}")
 
-                apply_images_to_puzzles(best_chromosome)
-                snake_animation = puzzle_snake.get_snake_animation(best_chromosome, show_animation=False)
-                # snake = puzzle_snake.get_snake_image(best_chromosome)
-                # image_processing.view_image(image, f"fit={best_fit:.2f}, it={it}")
-
-                save_snake(fitness_logs, snake_animation, it)
-                puzzle_snake.snake_images = []
-
-                if best_fit < desired_fit:
-                    answer = input("Do you want to continue? (y/n)")
-                    if answer.lower() == "n":
-                        print("stopping...")
-                        image_processing.view_image(snake_animation[-1], "final snake")
-                        break
-                    else:
-                        print("continuing...")
-                        desired_fit -= 0.1
-                        if desired_fit < 0:
-                            desired_fit = 0
-                        print(f"desired fit set to: {desired_fit:.3f}")
         best_chromosome = evolution.get_best_chromosome()
         apply_images_to_puzzles(best_chromosome)
         snake_animation = puzzle_snake.get_snake_animation(best_chromosome, show_animation=False)
-        return snake_animation
-
+        print("saving")
+        image_processing.save_image("./results/guiResult.png", snake_animation[-1])
 
     def display_image(self, file_path):
         pixmap = QPixmap(file_path)

@@ -29,6 +29,7 @@ class MainWindow(QMainWindow):
         self.image_label = QLabel("Image will be showed here")
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setFixedSize(600, 400)
+        self.image_label.setWordWrap(True)
         self.image_label.setAcceptDrops(True)
         self.layout.setAlignment(Qt.AlignCenter)
         self.image_label.setStyleSheet(
@@ -59,13 +60,16 @@ class MainWindow(QMainWindow):
 
     def add_file(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)")
-        self.current_file_path = file_name
         if file_name:
+            self.current_file_path = file_name
             self.display_image(file_name)
 
     def solve_puzzle(self):
         # Display a loading message or screen
-        self.image_label.setText(f"Solving the puzzle {self.current_file_path}, please wait...")
+        if self.current_file_path is None:
+            self.image_label.setText(f"select file by selecting image in \"Add file\" button")
+        else:
+            self.image_label.setText(f"Solving the puzzle {self.current_file_path}, please wait...")
 
     def display_image(self, file_path):
         pixmap = QPixmap(file_path)

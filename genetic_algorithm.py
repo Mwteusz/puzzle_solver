@@ -29,13 +29,17 @@ def edges_to_test(notches: dict):
 
 
 def calculate_similarity(similarity, length_similarity, image_similarity ,n=2):
-    return (1 - (similarity + length_similarity) / 2) ** (1. / n)
+    print(similarity, length_similarity, image_similarity)
+    #return (1 - (similarity + length_similarity) / 2) ** (1. / n)
     #TODO
-    sum_weights = np.array([1, 1, 0])
+    sum_weights = np.array([1, 1, 2])
     elements = np.array([similarity, length_similarity, image_similarity])
 
-    weighted_average = np.dot(sum_weights, elements) / sum_weights.sum()
-    return weighted_average ** (1. / n)
+    weighted_sum = np.dot(sum_weights, elements)
+    weighted_average = weighted_sum / sum(sum_weights)
+
+    result = (1-weighted_average) ** (1. / n)
+    return result
 
 
 
@@ -262,7 +266,8 @@ def save_snake(fitness_logs, snake_animation, iteration):
 
 if __name__ == '__main__':
 
-    puzzle_collection = PuzzleCollection.unpickle("2024-04-28_scattered_bliss_v=3_r=False.pickle")
+    #puzzle_collection = PuzzleCollection.unpickle("2024-04-28_scattered_bliss_v=3_r=False.pickle")
+    puzzle_collection = PuzzleCollection.unpickle()
     puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
     puzzle_collection.set_ids()
     #image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")

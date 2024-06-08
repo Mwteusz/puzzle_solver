@@ -113,30 +113,39 @@ def find_foremost_white_pixel(bounds, mask, y_start):
     return yList
 
 
-def avg_BGR(image, x, y):
+def get_average_color(image, x, y):
     region = image[y:y + 3, x:x + 3]
-    avg_rgb = np.mean(region, axis=(0, 1))
+    region_hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
+    weights = np.array([1, 1, 0.33])
+    region_hsv = region_hsv * weights
+    avg_color = np.average(region_hsv, axis=(0, 1))
+    return avg_color
 
-    return avg_rgb
 
-
-def avg_puzzle_area(bottom_piece, i, puzzle1_white_pixel, puzzle2_white_pixel, top_piece):
-    x1 = puzzle1_white_pixel[i][0]
-    y1 = puzzle1_white_pixel[i][1]
-    x2 = puzzle2_white_pixel[i][0]
-    y2 = puzzle2_white_pixel[i][1]
+def avg_puzzle_area(bottom_piece, i, top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece, depth):
+    x1 = top_puzzle_white_pixel[i][0]
+    y1 = top_puzzle_white_pixel[i][1] - depth
+    x2 = bottom_puzzle_white_pixel[i][0]
+    y2 = bottom_puzzle_white_pixel[i][1] + depth
     offset = int(bottom_piece.image.shape[0] * 0.03)
-    avg_bgr_puzzle1 = avg_BGR(top_piece.image, x1, y1 - offset)
-    avg_bgr_puzzle2 = avg_BGR(bottom_piece.image, x2, y2 + offset)
+    avg_bgr_puzzle1 = get_average_color(top_piece.image, x1, y1 - offset)
+    avg_bgr_puzzle2 = get_average_color(bottom_piece.image, x2, y2 + offset)
+    # print(avg_bgr_puzzle2,avg_bgr_puzzle1)
     return (avg_bgr_puzzle1, avg_bgr_puzzle2)
 
 
-def count_distances(puzzle1_white_pixel, puzzle2_white_pixel, top_piece, bottom_piece):
+def count_distances(top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece, bottom_piece):
     distance = []
-    length = min(len(puzzle1_white_pixel), len(puzzle2_white_pixel))
-    for i in range(length):
-        avg_puzzle = avg_puzzle_area(bottom_piece, i, puzzle1_white_pixel, puzzle2_white_pixel, top_piece)
-        distance.append(np.linalg.norm(np.array(avg_puzzle[0]) - np.array(avg_puzzle[1])))
+    length = min(len(top_puzzle_white_pixel), len(bottom_puzzle_white_pixel))
+    for step in range(0, length):
+        pairs=[]
+        for depth in range(3):
+            avg_puzzle = avg_puzzle_area(bottom_piece, step, top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece, depth*3)
+            pairs.append(np.linalg.norm(np.array(avg_puzzle[0]) - np.array(avg_puzzle[1])))
+
+        average = np.average(pairs,weights=[3,2,1])
+        # print(pairs," = ", average)
+        distance.append(average)
     return distance
 
 
@@ -155,26 +164,27 @@ def calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2):
 
 
 
-    vector1 = get_vectors_from_corners(top_piece.corners)["BOTTOM"]
+    vector_top_puzzle = get_vectors_from_corners(top_piece.corners)["BOTTOM"]
 
-    puzzle1_white_pixel = find_foremost_white_pixel(bounds=(vector1.point1, vector1.point2),
+    top_puzzle_white_pixel = find_foremost_white_pixel(bounds=(vector_top_puzzle.point1, vector_top_puzzle.point2),
                                                     mask=top_piece.mask, y_start="BOTTOM")
 
-    vector2 = get_vectors_from_corners(bottom_piece.corners)["TOP"]
-    puzzle2_white_pixel = find_foremost_white_pixel(bounds=(vector2.point1, vector2.point2),
+    vector_bottom_puzzle = get_vectors_from_corners(bottom_piece.corners)["TOP"]
+    bottom_puzzle_white_pixel = find_foremost_white_pixel(bounds=(vector_bottom_puzzle.point1, vector_bottom_puzzle.point2),
                                                     mask=bottom_piece.mask, y_start="TOP")
+
+
+
+
+    distances = count_distances(top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece, bottom_piece)
+    avg_distance = np.mean(distances)
+
+    print("distances = ",distances)
+    print("avg distance", avg_distance)
+    scaled_distance = 1 - scale_result(avg_distance)
 
     shape1, shape2 = puzzle1.mask.shape, puzzle2.mask.shape
     image_shape = shape1[0] + shape2[0], shape1[1] + shape2[1], 3  # RGB
-    # print("shape", image_shape)
-
-
-    distances = count_distances(puzzle1_white_pixel, puzzle2_white_pixel, top_piece, bottom_piece)
-    avg_distance = np.mean(distances)
-
-    scaled_distance = scale_result(avg_distance)
-
-    # print(avg_distance, scaled_distance)
 
     #background = np.zeros(image_shape, dtype=np.uint8)
     #connection_point1 = vector1.get_middle()
@@ -240,7 +250,7 @@ def get_mask_xor_ratio(puzzle1, edge_type1, puzzle2, edge_type2):
     # print(f"compare similarities: similarity1={similarity1:.4}, similarity2={similarity2:.4}, similarity3={similarity3:.4}")
     length_similarity = 1 - abs(vector1.distance() - vector2.distance()) / max(vector1.distance(), vector2.distance())
 
-    image_similarity = 0#calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2) #TODO
+    image_similarity = calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2) #TODO
 
     return similarity1, length_similarity, image_similarity, xor_img, close_up
 
@@ -296,10 +306,10 @@ def connect_puzzles(puzzle1: ExtractedPuzzle, edge1: str, puzzle2: ExtractedPuzz
     # if not is_connection_possible(puzzle1, edge1, puzzle2, edge2): #should be checked before calling this function
     #    raise MatchException("connection is impossible!!")
     rotations = number_of_rotations(edge1, edge2)
-    # preview1 = puzzle1.get_preview()
     puzzle1 = puzzle1.get_rotated(rotations)
-    # preview2 = puzzle1.get_preview()
-    # image_processing.view_image(image_processing.images_to_image([preview1, preview2]), f"rotated puzzles {rotations}")
+    #preview1 = puzzle1.get_preview()
+    #preview2 = puzzle2.get_preview()
+    #image_processing.view_image(image_processing.images_to_image([preview1, preview2]), f"rotated puzzles {rotations}")
     edge1 = get_opposite_edge(edge2)
     return get_mask_xor_ratio(puzzle1, edge1, puzzle2, edge2)
 

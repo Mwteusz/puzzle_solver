@@ -46,17 +46,38 @@ def calculate_similarity(similarity, length_similarity, image_similarity ,n=2):
 #def calculate_similarity(similarity, length_similarity):
 #    return 1 - (similarity + length_similarity) / 2
 
+#### global
+
 fit_cache = {}
-def fitFun(puzzles, print_fits=False, get_fits=False):
+do_clusters = False
+min_cluster_thresh = 0
+
+#### ####
+def fitFun(puzzles, print_fits=False, get_fits=False, return_best_fit=False):
     score = 0
 
     edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
-
+    bestbest_fit = 1
     fits = []
     for i, piece in enumerate(puzzles):
-        next_piece= puzzles[(i+1)%len(puzzles)]
+        next_piece = puzzles[(i+1)%len(puzzles)]
 
         edge1, edge2 = edges_to_test(piece.notches)
+
+        if piece.cluster_id == next_piece.cluster_id:
+            try:
+                if (piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation) in fit_cache:
+                    add = fit_cache[(piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation)]
+                    #print("cached:",len(fit_cache))
+                else:
+                    is_connection_possible(piece, edge1, next_piece, edge2)
+                    similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, edge2)
+                    add = calculate_similarity(similarity, length_similarity)
+                    fit_cache[(piece.id, next_piece.id, edge1, edge2, next_piece.rotation, piece.rotation)] = add
+            except MatchException:
+                add = 1
+            score += add
+            continue
 
 ###########
         best_fit = 1
@@ -81,15 +102,37 @@ def fitFun(puzzles, print_fits=False, get_fits=False):
                 best_fit = add
                 best_edge = tested_edge
         rotations = number_of_rotations(edge1, best_edge)
-        next_piece.rotate(rotations)
+
+        #check for clusters for next piece
+        next_piece_cluster_id = next_piece.cluster_id
+        for p in filter(lambda _p: _p.cluster_id == next_piece_cluster_id, puzzles):
+            p.rotate(rotations)
+
+        # for pieceMini in puzzles:
+        #     if pieceMini.cluster_id == next_piece_cluster_id:
+        #         pieceMini.rotate(rotations)
+
+        ## next_piece.rotate(rotations)
 ###########
+        if do_clusters:
+            if best_fit < min_cluster_thresh:
+                match_id = next_piece.cluster_id
+                for p in filter(lambda _p: _p.cluster_id == match_id, puzzles):
+                    p.cluster_id = piece.cluster_id
+
         score += best_fit
+        if best_fit < bestbest_fit:
+            bestbest_fit = best_fit
         if get_fits or print_fits:
-            fit_string = f"id1:{piece.id}, rot1:{piece.rotation}, id2:{next_piece.id}, rot2:{next_piece.rotation}, fit:{best_fit:.2f}"
+            fit_string = f"id1:{piece.id}, rot1:{piece.rotation}, id2:{next_piece.id}, rot2:{next_piece.rotation}, best_fit:{best_fit:.2f}"
             fits.append(fit_string)
+
+
 
     if print_fits:
         [print(fit) for fit in fits]
+    if return_best_fit:
+        return bestbest_fit
     if get_fits:
         return score, fits
 
@@ -110,6 +153,7 @@ class Evolution:
         self.mutation_swap_chance = mutation_swap
         self.elitism_chance = elitism
         self.rotate = do_rotate
+        self.iteration_num = 0
 
 
         for i in range(num_of_chromosomes):
@@ -117,6 +161,8 @@ class Evolution:
                 filtered_copy = [piece.get_rotated(random.randint(0, 3), True) for piece in edge_pieces]
             else:
                 filtered_copy = [piece.deep_copy(True) for piece in edge_pieces]
+            for j in range(len(filtered_copy)):
+                filtered_copy[j].cluster_id = j
             random.shuffle(filtered_copy)
             self.chromosomes.append(filtered_copy)
 
@@ -181,7 +227,35 @@ class Evolution:
         for chromosome in chromosomes:
             if random.random() < probability:
                 index1, index2 = random.sample(range(self.num_of_genes), 2)
-                chromosome[index1], chromosome[index2] = chromosome[index2], chromosome[index1]
+                id1 = chromosome[index1].cluster_id
+                id2 = chromosome[index2].cluster_id
+
+                if id1 == id2:
+                    continue
+
+                ids1 = list(filter(lambda puzzle: puzzle.cluster_id == id1, chromosome))
+                ids2 = list(filter(lambda puzzle: puzzle.cluster_id == id2, chromosome))
+                rest = list(filter(lambda puzzle: puzzle.cluster_id != id1 and puzzle.cluster_id != id2, chromosome))
+
+                idx1 = next(idx for idx, puzzle in enumerate(chromosome) if puzzle.cluster_id == id1)
+                idx2 = next(idx for idx, puzzle in enumerate(chromosome) if puzzle.cluster_id == id2)
+
+                if idx1 > idx2:
+                    idx1, idx2 = idx2, idx1
+                    ids1, ids2 = ids2, ids1
+
+                idx2 -= len(ids1) - len(ids2)
+
+                swapped = [None] * len(chromosome)
+                swapped[:0] = rest
+                swapped[idx1:idx1] = ids2
+                swapped[idx2:idx2] = ids1
+                swapped = swapped[:len(chromosome)]
+
+                for i in range(len(chromosome)):
+                    chromosome[i] = swapped[i]
+
+                # chromosome[index1], chromosome[index2] = chromosome[index2], chromosome[index1]
 
     def insertion_mutation(self, chromosomes, probability):
         for chromosome in chromosomes:
@@ -206,7 +280,11 @@ class Evolution:
         return elites, rest
 
     def iteration(self):
+
         self.chromosomes.sort(key=fitFun, reverse=True)
+        if self.iteration_num > len(self.chromosomes[0]) ** 2:
+            do_clusters = True
+            min_cluster_thresh = fitFun(self.chromosomes[-1], return_best_fit=True) * 1.05
         best_chromosomes, temp_population = self.elitism()
         temp_population = self.roulette(self.chromosomes)[:len(temp_population)]
         children = []
@@ -220,6 +298,7 @@ class Evolution:
         self.swap_mutation(children, self.mutation_swap_chance)
         self.chromosomes = best_chromosomes + children
         self.chromosomes.sort(key=fitFun, reverse=True)
+        self.iteration_num += 1
 
     def get_best_chromosome(self):
         return self.chromosomes[-1]

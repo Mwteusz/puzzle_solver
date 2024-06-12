@@ -102,6 +102,7 @@ class ExtractedPuzzle:
         self.corners = corners
         self.id = id
         self.rotation = rotation
+        self.cluster_id = -1
 
 
     def __str__(self):

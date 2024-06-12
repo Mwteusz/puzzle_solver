@@ -95,13 +95,14 @@ def adjust_corners(corners, mask):
 
 
 class ExtractedPuzzle:
-    def __init__(self, notches: [NotchType] = None, image = None, mask = None, corners = None, id=None, rotation=0):
+    def __init__(self, notches: [NotchType] = None, image = None, mask = None, corners = None, id=None, rotation=0, cluster_id = -1):
         self.notches = notches
         self.image = image
         self.mask = mask
         self.corners = corners
         self.id = id
         self.rotation = rotation
+        self.cluster_id = cluster_id
 
 
     def __str__(self):
@@ -136,7 +137,8 @@ class ExtractedPuzzle:
         """returns a deep copy of the object, if copy_image is True, the image is copied as well, otherwise it is None"""
         new_corners = [(corner[0], corner[1]) for corner in self.corners]
         image_copy = None if (copy_image is False or self.image is None) else self.image.copy()
-        return ExtractedPuzzle(notches=self.notches.copy(), image=image_copy, mask=self.mask.copy(), corners=new_corners, id=self.id, rotation=self.rotation)
+        return ExtractedPuzzle(notches=self.notches.copy(), image=image_copy, mask=self.mask.copy(), corners=new_corners,
+                               id=self.id, rotation=self.rotation, cluster_id = self.cluster_id)
     #def fake_copy(self):
     #    """returns a copy of the object, but not the fields"""
     #    image = self.image if self.image is not None else None
@@ -460,7 +462,8 @@ def images_to_puzzle_collection(puzzle_images, puzzle_masks):
 
 if __name__ == '__main__':
     #name = "scattered_jaszczur_v=4_r=False"
-    name = "scattered_bliss_v=4_r=True"
+    # name = "scattered_bliss_v=4_r=True"
+    name = "generated"
     path = f"results/{name}.png"
 
     image = image_processing.load_image(path)

@@ -179,8 +179,8 @@ def calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2):
     distances = count_distances(top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece, bottom_piece)
     avg_distance = np.mean(distances)
 
-    print("distances = ",distances)
-    print("avg distance", avg_distance)
+    # print("distances = ",distances)
+    # print("avg distance", avg_distance)
     scaled_distance = 1 - scale_result(avg_distance)
 
     shape1, shape2 = puzzle1.mask.shape, puzzle2.mask.shape

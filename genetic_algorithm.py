@@ -14,7 +14,7 @@ from matching_puzzles import connect_puzzles
 
 session_id = hash(random.random())
 
-def edges_to_test(notches: dict):
+def edges_direction_to_test(notches: dict):
     """get sides to compare the next piece with"""
     types = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
     for type in types:
@@ -27,6 +27,18 @@ def edges_to_test(notches: dict):
                 return get_next_type(type), get_previous_type(type)
 
 
+def edges_direction_to_test_with_sides(position: int, sides_len: tuple):
+    width, height = sides_len
+
+    if position < width - 1:
+        return "RIGHT", "LEFT"
+    elif position < width + height - 2:
+        return "BOTTOM", "TOP"
+    elif position < width * 2 + height - 3:
+        return "LEFT", "RIGHT"
+    else:
+        return "UP", "BOTTOM"
+
 
 def calculate_similarity(similarity, length_similarity, n=2):
     return (1 - (similarity + length_similarity) / 2) ** (1. / n)
@@ -34,53 +46,30 @@ def calculate_similarity(similarity, length_similarity, n=2):
 #def calculate_similarity(similarity, length_similarity):
 #    return 1 - (similarity + length_similarity) / 2
 
-fit_cache = {}
-def fitFun(puzzles, print_fits=False, get_fits=False):
-    score = 0
+def is_corner(puzzle, notch1, notch2):
+    return puzzle.get_notch(notch1) == NotchType.NONE and puzzle.get_notch(notch2) == NotchType.NONE
 
-    edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
 
-    fits = []
-    for i, piece in enumerate(puzzles):
-        next_piece= puzzles[(i+1)%len(puzzles)]
+def calculate_size(chromosome):
+    top_left_idx = next(idx for idx, puzzle in enumerate(chromosome) if is_corner(puzzle, "TOP", "LEFT"))
+    top_right_idx = next(idx for idx, puzzle in enumerate(chromosome) if is_corner(puzzle, "TOP", "RIGHT"))
+    bottom_left_idx = next(idx for idx, puzzle in enumerate(chromosome) if is_corner(puzzle, "BOTTOM", "LEFT"))
+    bottom_right_idx = next(idx for idx, puzzle in enumerate(chromosome) if is_corner(puzzle, "BOTTOM", "RIGHT"))
 
-        edge1, edge2 = edges_to_test(piece.notches)
+    top_len = top_right_idx - top_left_idx if top_right_idx > top_left_idx else len(chromosome) - top_left_idx + top_right_idx
+    right_len = bottom_right_idx - top_right_idx if bottom_right_idx > top_right_idx else len(chromosome) - top_right_idx + bottom_right_idx
+    bottom_len = bottom_left_idx - bottom_right_idx if bottom_left_idx > bottom_right_idx else len(chromosome) - bottom_right_idx + bottom_left_idx
+    left_len = top_left_idx - bottom_left_idx if top_left_idx > bottom_left_idx else len(chromosome) - bottom_left_idx + top_left_idx
 
-###########
-        best_fit = 1
-        best_edge = edges[0]
+    top_len += 1
+    right_len += 1
+    bottom_len += 1
+    left_len += 1
 
-        for tested_edge in edges:
+    if top_len != bottom_len or left_len != right_len:
+        raise Exception("The frame is not a rect!")
 
-            try:
-                if (piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation) in fit_cache:
-                    add = fit_cache[(piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation)]
-                    #print("cached:",len(fit_cache))
-                else:
-                    is_connection_possible(piece, edge1, next_piece, tested_edge)
-                    similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece, tested_edge)
-                    add = calculate_similarity(similarity, length_similarity)
-                    fit_cache[(piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation)] = add
-            except MatchException:
-                add = 1 # if the connection is not possible, the fit is the worst
-
-            if add < best_fit:
-                best_fit = add
-                best_edge = tested_edge
-        rotations = number_of_rotations(edge1, best_edge)
-        next_piece.rotate(rotations)
-###########
-        score += best_fit
-        if get_fits or print_fits:
-            fit_string = f"id1:{piece.id}, rot1:{piece.rotation}, id2:{next_piece.id}, rot2:{next_piece.rotation}, fit:{add:.2f}"
-            fits.append(fit_string)
-
-    if print_fits:
-        [print(fit) for fit in fits]
-    if get_fits:
-        return score, fits
-
-    return score # 0 is the best fit (the least distance)
+    return top_len, right_len
 
 
 class Evolution:
@@ -89,15 +78,19 @@ class Evolution:
     num_of_genes = 0
     elitism_chance = 0.0
     mutation_rotate_chance = 0.0
+    sides_len = (0, 0)
+    last_winner = None
+    fit_cache = {}
 
-    def __init__(self, chromosomes, genes, mutation_rotate, mutation_swap, elitism, do_rotate=True):
+    def __init__(self, chromosomes, genes, mutation_rotate, mutation_swap, elitism, do_rotate=True, sides_len=(0, 0), last_winner=None):
         self.num_of_genes = genes
         self.num_of_chromosomes = chromosomes
         self.mutation_rotate_chance = mutation_rotate
         self.mutation_swap_chance = mutation_swap
         self.elitism_chance = elitism
         self.rotate = do_rotate
-
+        self.sides_len = sides_len # top_len, right_len
+        self.last_winner = last_winner
 
         for i in range(num_of_chromosomes):
             if do_rotate:
@@ -107,8 +100,113 @@ class Evolution:
             random.shuffle(filtered_copy)
             self.chromosomes.append(filtered_copy)
 
+    def fit_fun_edges(self, puzzles, print_fits=False, get_fits=False):
+        score = 0
+
+        edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
+
+        fits = []
+        for i, piece in enumerate(puzzles):
+            next_piece = puzzles[(i + 1) % len(puzzles)]
+
+            edge1, edge2 = edges_direction_to_test_with_sides(i, self.sides_len)
+
+            ###########
+            best_fit = 1
+            best_edge = edges[0]
+
+            for tested_edge in edges:
+
+                try:
+                    if (piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation) in self.fit_cache:
+                        add = self.fit_cache[
+                            (piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation)]
+                        # print("cached:",len(fit_cache))
+                    else:
+                        is_connection_possible(piece, edge1, next_piece, tested_edge)
+                        similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece,
+                                                                                    tested_edge)
+                        add = calculate_similarity(similarity, length_similarity)
+                        self.fit_cache[
+                            (piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation)] = add
+                except MatchException:
+                    add = 1  # if the connection is not possible, the fit is the worst
+
+                if add < best_fit:
+                    best_fit = add
+                    best_edge = tested_edge
+            rotations = number_of_rotations(edge1, best_edge)
+            next_piece.rotate(rotations)
+            ###########
+            score += best_fit
+            if get_fits or print_fits:
+                fit_string = f"id1:{piece.id}, rot1:{piece.rotation}, id2:{next_piece.id}, rot2:{next_piece.rotation}, fit:{add:.2f}"
+                fits.append(fit_string)
+
+        if print_fits:
+            [print(fit) for fit in fits]
+        if get_fits:
+            return score, fits
+
+        return score  # 0 is the best fit (the least distance)
+
+    def fit_fun_inside(self, puzzles, print_fits=False, get_fits=False):
+        width, height = self.sides_len
+        puzzles_to_test = width * 2 + height * 2 - 4
+        test_slice = puzzles[:puzzles_to_test]
+
+        score = 0
+
+        edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
+
+        fits = []
+        for i, piece in enumerate(test_slice):
+            next_piece = test_slice[(i + 1) % len(test_slice)]
+
+            edge1, edge2 = edges_direction_to_test(piece.notches)
+
+            ###########
+            best_fit = 1
+            best_edge = edges[0]
+
+            for tested_edge in edges:
+
+                try:
+                    if (
+                    piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation) in self.fit_cache:
+                        add = self.fit_cache[
+                            (piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation)]
+                        # print("cached:",len(fit_cache))
+                    else:
+                        is_connection_possible(piece, edge1, next_piece, tested_edge)
+                        similarity, length_similarity, img1, img2 = connect_puzzles(piece, edge1, next_piece,
+                                                                                    tested_edge)
+                        add = calculate_similarity(similarity, length_similarity)
+                        self.fit_cache[
+                            (piece.id, next_piece.id, edge1, tested_edge, next_piece.rotation, piece.rotation)] = add
+                except MatchException:
+                    add = 1  # if the connection is not possible, the fit is the worst
+
+                if add < best_fit:
+                    best_fit = add
+                    best_edge = tested_edge
+            rotations = number_of_rotations(edge1, best_edge)
+            next_piece.rotate(rotations)
+            ###########
+            score += best_fit
+            if get_fits or print_fits:
+                fit_string = f"id1:{piece.id}, rot1:{piece.rotation}, id2:{next_piece.id}, rot2:{next_piece.rotation}, fit:{add:.2f}"
+                fits.append(fit_string)
+
+        if print_fits:
+            [print(fit) for fit in fits]
+        if get_fits:
+            return score, fits
+
+        return score  # 0 is the best fit (the least distance)
+
     def roulette(self, chromosomes):
-        fitness = [1 / fitFun(x) for x in self.chromosomes]
+        fitness = [1 / self.fit_fun_edges(x) for x in self.chromosomes]
         fitness = fitness / np.sum(fitness)
 
         new_chromosomes = []
@@ -184,7 +282,7 @@ class Evolution:
 
     def elitism(self):
         """splits the population into elites and the rest of the population"""
-        self.chromosomes.sort(key=fitFun, reverse=True)
+        self.chromosomes.sort(key=self.fit_fun_edges, reverse=True)
         elites = []
         for i in range(int(self.elitism_chance * self.num_of_chromosomes)):
             elites.append(self.chromosomes[-i])
@@ -193,7 +291,7 @@ class Evolution:
         return elites, rest
 
     def iteration(self):
-        self.chromosomes.sort(key=fitFun, reverse=True)
+        self.chromosomes.sort(key=self.fit_fun_edges, reverse=True)
         best_chromosomes, temp_population = self.elitism()
         temp_population = self.roulette(self.chromosomes)[:len(temp_population)]
         children = []
@@ -206,7 +304,7 @@ class Evolution:
         self.rotate_mutation(children, self.mutation_rotate_chance)
         self.swap_mutation(children, self.mutation_swap_chance)
         self.chromosomes = best_chromosomes + children
-        self.chromosomes.sort(key=fitFun, reverse=True)
+        self.chromosomes.sort(key=self.fit_fun_edges, reverse=True)
 
     def get_best_chromosome(self):
         return self.chromosomes[-1]
@@ -214,11 +312,11 @@ class Evolution:
     def __str__(self):
         result = ""
         for i, chromosome in enumerate(self.chromosomes):
-            result += f"{i}: {fitFun(chromosome)}\n"
+            result += f"{i}: {self.fit_fun_edges(chromosome)}\n"
         return result
 
     def get_sum_of_fits(self):
-        return sum(fitFun(chromosome) for chromosome in self.chromosomes)
+        return sum(self.fit_fun_edges(chromosome) for chromosome in self.chromosomes)
 
 
 def apply_images_to_puzzles(puzzles):
@@ -266,13 +364,14 @@ if __name__ == '__main__':
     desired_fit = 0.5
 
     evolution = Evolution(num_of_chromosomes, num_of_genes, 0, 0.1, 0.2, do_rotate=True)
+    winner = None
 
     record_fit = num_of_genes*2
     for it in tqdm(range(num_of_iterations)):
         evolution.iteration()
 
         best_chromosome = evolution.get_best_chromosome()
-        best_fit, fitness_logs = fitFun(best_chromosome, get_fits=True)
+        best_fit, fitness_logs = evolution.fit_fun_edges(best_chromosome, get_fits=True)
 
 
         if it % 100 == 0:
@@ -284,7 +383,7 @@ if __name__ == '__main__':
 
         if (best_fit < record_fit) or (it == num_of_iterations - 1) or (best_fit < desired_fit):
             record_fit = best_fit
-            fitFun(best_chromosome, print_fits=False)
+            evolution.fit_fun_edges(best_chromosome, print_fits=False)
             print(f"best fit: {best_fit:.3f}")
 
             apply_images_to_puzzles(best_chromosome)
@@ -300,6 +399,7 @@ if __name__ == '__main__':
                 if answer.lower() == "n":
                     print("stopping...")
                     image_processing.view_image(snake_animation[-1], "final snake")
+                    winner = best_chromosome
                     break
                 else:
                     print("continuing...")

@@ -34,7 +34,7 @@ def place_puzzle(background, puzzle, left_side, edge="LEFT"):
     if NotchType.NONE not in puzzle.notches.values():
         next_edge = get_opposite_edge(edge)
     else:
-        next_edge, _ = genetic_algorithm.edges_to_test(puzzle.notches)
+        next_edge, _ = genetic_algorithm.edges_direction_to_test(puzzle.notches)
     #print(next_edge)
 
     next_connection_point = edges[next_edge].get_middle()

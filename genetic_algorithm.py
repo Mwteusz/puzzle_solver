@@ -82,12 +82,13 @@ class Evolution:
             random.shuffle(filtered_copy)
             self.chromosomes.append(filtered_copy)
 
-    def fitFun(self, puzzles, print_fits=False, get_fits=False, return_best_fit=False):
+    def fitFun(self, puzzles, print_fits=False, get_fits=False, return_best_fit=False, return_best_fits=False):
         score = 0
 
         edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
         bestbest_fit = 1
         fits = []
+        best_fits = []
         for i, piece in enumerate(puzzles):
             next_piece = puzzles[(i + 1) % len(puzzles)]
 
@@ -158,7 +159,8 @@ class Evolution:
             score += best_fit
             if best_fit < bestbest_fit:
                 bestbest_fit = best_fit
-            if get_fits or print_fits:
+            if get_fits or print_fits or return_best_fits:
+                best_fits.append(best_fit)
                 fit_string = f"id1:{piece.id}, rot1:{piece.rotation}, id2:{next_piece.id}, rot2:{next_piece.rotation}, best_fit:{best_fit:.2f}"
                 fits.append(fit_string)
 
@@ -168,6 +170,8 @@ class Evolution:
             return bestbest_fit
         if get_fits:
             return score, fits
+        if return_best_fits:
+            return best_fits
 
         return score  # 0 is the best fit (the least distance)
 
@@ -307,9 +311,14 @@ class Evolution:
     def iteration(self):
 
         self.chromosomes.sort(key=self.fitFun, reverse=True)
-        if self.do_clusters or self.iteration_num > len(self.chromosomes[0]) ** 2:
+        if self.do_clusters or self.iteration_num > len(self.chromosomes[0]):
+            current_best_fit = self.fitFun(self.chromosomes[-1], return_best_fit=True) * 1.05
+            if current_best_fit < self.min_cluster_thresh or self.min_cluster_thresh == 0:
+                self.min_cluster_thresh = current_best_fit
+            # self.min_cluster_thresh = self.fitFun(self.chromosomes[-1], return_best_fit=True) * 1.05
+                print(f"New threshold: {self.min_cluster_thresh}")
             self.do_clusters = True
-            self.min_cluster_thresh = self.fitFun(self.chromosomes[-1], return_best_fit=True)
+            best_fits = self.fitFun(self.chromosomes[-1], return_best_fits=True)
         best_chromosomes, temp_population = self.elitism()
         temp_population = self.roulette(self.chromosomes)[:len(temp_population)]
         children = []

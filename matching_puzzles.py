@@ -44,6 +44,19 @@ def number_of_rotations(type1: str, type2: str):
         return 0
     return (4 + (a - b)) % 4
 
+def calculate_similarity(similarity, length_similarity, image_similarity ,n=2):
+    # print(similarity, length_similarity, image_similarity)
+    #return (1 - (similarity + length_similarity) / 2) ** (1. / n)
+    #TODO
+    sum_weights = np.array([1, 1, 2])
+    elements = np.array([similarity, length_similarity, image_similarity])
+
+    weighted_sum = np.dot(sum_weights, elements)
+    weighted_average = weighted_sum / sum(sum_weights)
+
+    result = (1-weighted_average) ** (1. / n)
+    return result
+
 
 # def connect_puzzles(puzzle1, puzzle2):
 #    notches = find_matching_notches(puzzle1, puzzle2)

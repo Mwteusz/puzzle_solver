@@ -463,7 +463,7 @@ def images_to_puzzle_collection(puzzle_images, puzzle_masks):
 if __name__ == '__main__':
     #name = "scattered_jaszczur_v=4_r=False"
     # name = "scattered_bliss_v=4_r=True"
-    name = "generated"
+    name = "scattered_hentai_v=4_r=True"
     path = f"results/{name}.png"
 
     image = image_processing.load_image(path)

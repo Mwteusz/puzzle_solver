@@ -266,7 +266,7 @@ def image_to_puzzles(path = None, vertical_puzzle_size = 5, image = None, force=
 if __name__ == '__main__':
     name="bliss"
     do_rotate = True
-    v=4
+    v=3
 
     image = image_processing.load_image(f"input_photos/{name}.png")
     puzzle_images, puzzle_masks = image_to_puzzles(image=image, vertical_puzzle_size=v, force=True)

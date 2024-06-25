@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import os
 import imageio
-
+import matplotlib.pyplot as plt
 def save_image(path, image):
     directory = os.path.dirname(path)
     if not os.path.exists(directory):
@@ -217,3 +217,29 @@ def expand_right_bottom(image, max_height, max_width):
     new_image = np.zeros((max_height, max_width, 3), dtype=np.uint8)
     new_image[:image.shape[0], :image.shape[1]] = image
     return new_image
+
+
+def show_image_matrix(puzzle_matrix):
+    shape = puzzle_matrix.shape
+    fig, ax = plt.subplots(shape[1], shape[0], figsize=(10,10))
+    for i in range(shape[0]):
+        for j in range(shape[1]):
+
+            image = puzzle_matrix[i,j]
+            if image is not None:
+                ax[i, j].imshow(image)
+            ax[i, j].axis('off')
+    plt.show(   )
+
+
+# if __name__ == '__main__':
+#     bliss = load_image("input_photos/bliss.png")
+#     cool_image = load_image("input_photos/coolimage.png")
+#     hentai = load_image("input_photos/hentai.png")
+#
+#     images = np.empty((2, 2), dtype=object)
+#     images[0, 0] = bliss
+#     images[0, 1] = cool_image
+#     images[1, 0] = hentai
+#
+#     show_image_matrix(images)

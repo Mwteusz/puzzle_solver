@@ -5,12 +5,14 @@ from tqdm import tqdm
 
 import image_processing
 import puzzle_snake
+from genetic_algorithm_pt2 import InsideEvo
 from puzzle_extracting import ExtractedPuzzle, PuzzleCollection
 from teeth_detection import NotchType
 from teeth_detection import get_next_type
 from teeth_detection import get_previous_type
 from matching_puzzles import is_connection_possible, MatchException, number_of_rotations
 from matching_puzzles import connect_puzzles
+from matching_puzzles import calculate_similarity
 
 session_id = hash(random.random())
 
@@ -28,18 +30,7 @@ def edges_to_test(notches: dict):
 
 
 
-def calculate_similarity(similarity, length_similarity, image_similarity ,n=2):
-    # print(similarity, length_similarity, image_similarity)
-    #return (1 - (similarity + length_similarity) / 2) ** (1. / n)
-    #TODO
-    sum_weights = np.array([1, 1, 2])
-    elements = np.array([similarity, length_similarity, image_similarity])
 
-    weighted_sum = np.dot(sum_weights, elements)
-    weighted_average = weighted_sum / sum(sum_weights)
-
-    result = (1-weighted_average) ** (1. / n)
-    return result
 
 
 
@@ -70,7 +61,7 @@ class Evolution:
         self.fit_cache = {}
         self.do_clusters = False
         self.min_cluster_thresh = 0
-
+        self.default_mutation_chance = mutation_swap
 
         for i in range(num_of_chromosomes):
             if do_rotate:
@@ -81,6 +72,8 @@ class Evolution:
                 filtered_copy[j].cluster_id = j
             random.shuffle(filtered_copy)
             self.chromosomes.append(filtered_copy)
+
+        self.last_best_fit = self.fitFun(self.chromosomes[0], return_best_fit=True)
 
     def fitFun(self, puzzles, print_fits=False, get_fits=False, return_best_fit=False, return_best_fits=False):
         score = 0
@@ -311,7 +304,13 @@ class Evolution:
     def iteration(self):
 
         self.chromosomes.sort(key=self.fitFun, reverse=True)
-        if self.do_clusters or self.iteration_num > len(self.chromosomes[0]):
+
+        if self.fitFun(self.chromosomes[-1], return_best_fit=True) < self.last_best_fit:
+            self.mutation_swap_chance = self.default_mutation_chance
+        elif self.mutation_swap_chance < 0.4:
+            self.mutation_swap_chance += 0.001
+
+        if not self.do_clusters and self.iteration_num > len(self.chromosomes[0]):
             current_best_fit = self.fitFun(self.chromosomes[-1], return_best_fit=True) * 1.05
             if current_best_fit < self.min_cluster_thresh or self.min_cluster_thresh == 0:
                 self.min_cluster_thresh = current_best_fit
@@ -376,18 +375,23 @@ def save_snake(fitness_logs, snake_animation, iteration):
     print(f"saved snake_it{iteration}")
 
 
+def is_completed(chromosome):
+    main_cluster = chromosome[0].cluster_id
+    return all(puzzle.cluster_id == main_cluster for puzzle in chromosome)
+
 
 if __name__ == '__main__':
 
     #puzzle_collection = PuzzleCollection.unpickle("2024-04-28_scattered_bliss_v=3_r=False.pickle")
     puzzle_collection = PuzzleCollection.unpickle()
-    puzzle_collection, _ = puzzle_collection.partition_by_notch_type(NotchType.NONE)
+    puzzle_collection, inside_puzzle_collection = puzzle_collection.partition_by_notch_type(NotchType.NONE)
     puzzle_collection.set_ids()
+    inside_puzzle_collection.set_ids()
     #image_processing.view_image(puzzle_collection.get_preview(),"edge pieces")
     edge_pieces = puzzle_collection.pieces
+    inside_pieces = inside_puzzle_collection.pieces
 
-
-    num_of_iterations = 10000000
+    num_of_iterations = 1000000
     num_of_chromosomes = 100
     num_of_genes = len(edge_pieces)
     desired_fit = 0.5
@@ -422,18 +426,40 @@ if __name__ == '__main__':
             save_snake(fitness_logs, snake_animation, it)
             puzzle_snake.snake_images = []
 
-            if best_fit < desired_fit:
-                answer = input("Do you want to continue? (y/n)")
-                if answer.lower() == "n":
-                    print("stopping...")
-                    image_processing.view_image(snake_animation[-1], "final snake")
-                    break
-                else:
-                    print("continuing...")
-                    desired_fit -= 0.1
-                    if desired_fit < 0:
-                        desired_fit = 0
-                    print(f"desired fit set to: {desired_fit:.3f}")
+        if is_completed(best_chromosome):
+            break
 
+    best_chromosome = evolution.get_best_chromosome()
 
+    shift_value = list(puzzle.notches["TOP"] == NotchType.NONE and puzzle.notches["LEFT"] == NotchType.NONE for puzzle in best_chromosome).index(True)
+    shifted_chromosome = best_chromosome[shift_value:] + best_chromosome[:shift_value]
 
+    width = len(list(map(lambda puzzle: puzzle.notches["TOP"] == NotchType.NONE, best_chromosome)))
+    height = len(list(map(lambda puzzle: puzzle.notches["LEFT"] == NotchType.NONE, best_chromosome)))
+
+    pattern_matrix = np.empty((height, width), dtype=ExtractedPuzzle) * None
+
+    tops = list(filter(lambda puzzle: puzzle.notches["TOP"] == NotchType.NONE, shifted_chromosome))
+    rights = list(filter(lambda puzzle: puzzle.notches["RIGHT"] == NotchType.NONE, shifted_chromosome))
+    bottoms = list(filter(lambda puzzle: puzzle.notches["BOTTOM"] == NotchType.NONE, shifted_chromosome))
+    lefts = list(filter(lambda puzzle: puzzle.notches["LEFT"] == NotchType.NONE, shifted_chromosome))
+
+    bottoms.reverse()
+    lefts.reverse()
+
+    for i in range(width):
+        pattern_matrix[0][i] = tops[i]
+        pattern_matrix[-1][i] = bottoms[i]
+
+    for i in range(height):
+        pattern_matrix[i][0] = lefts[i]
+        pattern_matrix[i][-1] = rights[i]
+
+    image_processing.show_image_matrix(pattern_matrix)
+
+    number_of_genes = width - 2
+
+    inside_evo = InsideEvo(inside_pieces, num_of_chromosomes, number_of_genes, [], 0.1, 0.2)
+
+    for it in tqdm(range(num_of_iterations)):
+        inside_evo.iteration()

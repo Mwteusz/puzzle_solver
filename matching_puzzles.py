@@ -51,7 +51,9 @@ def calculate_similarity(similarity, length_similarity, image_similarity ,n=2):
     sum_weights = np.array([1, 1, 2])
     elements = np.array([similarity, length_similarity, image_similarity])
 
+    print("before:", elements)
     weighted_sum = np.dot(sum_weights, elements)
+    print("after:", weighted_sum)
     weighted_average = weighted_sum / sum(sum_weights)
 
     result = (1-weighted_average) ** (1. / n)
@@ -364,8 +366,8 @@ def test_connect_puzzles(pieces, edges):
         print(e)
         raise e
 
-    similarity, length_similarity, img1, img2 = connect_puzzles(puzzle1, edge1, puzzle2, edge2)
-    return similarity, length_similarity, [img1, img2], number_of_rotations(edge1, edge2)
+    similarity, length_similarity, color_similarity, img1, img2 = connect_puzzles(puzzle1, edge1, puzzle2, edge2)
+    return similarity, length_similarity, color_similarity, [img1, img2], number_of_rotations(edge1, edge2)
 
 
 def test_random_pairs():
@@ -388,16 +390,16 @@ def test_random_pairs():
 def test_pair(edge1, edge2, puzzle1, puzzle2, indexes):
     # image_processing.view_image(puzzle1.get_preview(), edge1)
     # image_processing.view_image(puzzle2.get_preview(), edge2)
-    similarity, length_similarity, imgs, rotate_value = test_connect_puzzles((puzzle1, puzzle2), (edge1, edge2))
+    similarity, length_similarity, color_similarity, imgs, rotate_value = test_connect_puzzles((puzzle1, puzzle2), (edge1, edge2))
 
     print(f"testing pairs {indexes[0]} and {indexes[1]}, {edge1} and {edge2}")
     image = image_processing.images_to_image([puzzle1.get_preview(), puzzle2.get_preview()])
     image_processing.view_image(image, f"pair {indexes[0]} and {indexes[1]}")
 
     print(
-        f"similarity = {similarity}, length_similarity = {length_similarity}, indexes = ({indexes[0]}, {indexes[1]}, \"{edge1}\", \"{edge2}\"),")
+        f"edge_similarity = {similarity}, length_similarity = {length_similarity}, color_similarity= {color_similarity},  = ({indexes[0]}, {indexes[1]}, \"{edge1}\", \"{edge2}\"),")
     print(f"notches: {puzzle1.get_notch(edge1)} {puzzle2.get_notch(edge2)}, rotations_needed = {rotate_value}")
-    print(genetic_algorithm.calculate_similarity(similarity, length_similarity))
+    print(genetic_algorithm.calculate_similarity(similarity, length_similarity, color_similarity))
     imgs.extend([puzzle1.get_preview(), puzzle2.get_preview()])
     result = image_processing.images_to_image(imgs)
     image_processing.view_image(result, similarity)
@@ -408,7 +410,7 @@ def test_pairs(pairs):
     for match in pairs:
         try:
             index1, index2, edge1, edge2 = match
-            puzzle_collection = PuzzleCollection.unpickle()
+            puzzle_collection = PuzzleCollection.unpickle("2024-06-26_processed_photo.pickle")
             puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.NONE)
             puzzle1, puzzle2 = puzzle_collection.pieces[index1], puzzle_collection.pieces[index2]
 
@@ -446,7 +448,7 @@ if __name__ == '__main__':
         (22, 29, "RIGHT", "TOP"),  # should not work
     ]
 
-    # test_pairs([(6, 0, "LEFT", "RIGHT")])
-    # test_pairs(matching_pairs)
+    #test_pairs([(6, 0, "LEFT", "RIGHT")])
+    #test_pairs(matching_pairs)
     # test_pairs(problematic_pairs)
     test_random_pairs()

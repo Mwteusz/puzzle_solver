@@ -44,12 +44,9 @@ def number_of_rotations(type1: str, type2: str):
         return 0
     return (4 + (a - b)) % 4
 
-def calculate_similarity(similarity, length_similarity, image_similarity ,n=2):
-    # print(similarity, length_similarity, image_similarity)
-    #return (1 - (similarity + length_similarity) / 2) ** (1. / n)
-    #TODO
-    sum_weights = np.array([1, 1, 2])
-    elements = np.array([similarity, length_similarity, image_similarity])
+def calculate_similarity(similarity, length_similarity, color_similarity, edge_on_image_similarity,n=2):
+    sum_weights = np.array([1, 1, 2, 1.5])
+    elements = np.array([similarity, length_similarity, color_similarity,edge_on_image_similarity])
 
     print("before:", elements)
     weighted_sum = np.dot(sum_weights, elements)
@@ -105,7 +102,7 @@ def mask_puzzle_connection(image, a, padding=0.05) -> (np.ndarray, np.ndarray):
     return cv2.bitwise_and(~cropped, mask), mask
 
 
-def find_foremost_white_pixel(bounds, mask, y_start):
+def find_foremost_white_pixel(bounds, mask, y_start, step=5):
     start = bounds[0]
     end = bounds[1]
     if start[0] > end[0]:
@@ -118,7 +115,6 @@ def find_foremost_white_pixel(bounds, mask, y_start):
         loop = range(mask.shape[0] - 1, mask.shape[0] // 2, -1)
 
     yList = []
-    step = max(int(mask.shape[0] * 0.03), 3)
     for x in range(start[0], end[0], step):
         for y in loop:
             if mask[y][x] == 255:
@@ -137,30 +133,66 @@ def get_average_color(image, x, y):
     return avg_color
 
 
-def avg_puzzle_area(bottom_piece, i, top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece, depth):
+def get_b_or_w(bottom_piece_image, i, top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece_image, depth):
     x1 = top_puzzle_white_pixel[i][0]
     y1 = top_puzzle_white_pixel[i][1] - depth
     x2 = bottom_puzzle_white_pixel[i][0]
     y2 = bottom_puzzle_white_pixel[i][1] + depth
-    offset = int(bottom_piece.image.shape[0] * 0.03)
-    avg_bgr_puzzle1 = get_average_color(top_piece.image, x1, y1 - offset)
-    avg_bgr_puzzle2 = get_average_color(bottom_piece.image, x2, y2 + offset)
+    offset = int(bottom_piece_image.shape[0] * 0.03)
+
+    pixel1 = top_piece_image[y1 - offset, x1]
+    pixel2 = bottom_piece_image[y2 + offset, x2]
+    #print("pixels:", pixel1, pixel2)
+
+    if pixel1 == pixel2:
+        if pixel1 == 255: #two white pixels
+            reward = 3
+        else: #two black pixels
+            reward = 1
+    else: #different values
+        reward = -1
+
+    return reward
+
+def avg_puzzle_area(bottom_piece_image, i, top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece_image, depth):
+    x1 = top_puzzle_white_pixel[i][0]
+    y1 = top_puzzle_white_pixel[i][1] - depth
+    x2 = bottom_puzzle_white_pixel[i][0]
+    y2 = bottom_puzzle_white_pixel[i][1] + depth
+    offset = int(bottom_piece_image.shape[0] * 0.03)
+    avg_bgr_puzzle1 = get_average_color(top_piece_image, x1, y1 - offset)
+    avg_bgr_puzzle2 = get_average_color(bottom_piece_image, x2, y2 + offset)
     # print(avg_bgr_puzzle2,avg_bgr_puzzle1)
     return (avg_bgr_puzzle1, avg_bgr_puzzle2)
 
 
-def count_distances(top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece, bottom_piece):
+def count_distances(top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece_image, bottom_piece_image):
     distance = []
     length = min(len(top_puzzle_white_pixel), len(bottom_puzzle_white_pixel))
     for step in range(0, length):
         pairs=[]
         for depth in range(3):
-            avg_puzzle = avg_puzzle_area(bottom_piece, step, top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece, depth*3)
+            avg_puzzle = avg_puzzle_area(bottom_piece_image, step, top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece_image, depth*3)
             pairs.append(np.linalg.norm(np.array(avg_puzzle[0]) - np.array(avg_puzzle[1])))
 
         average = np.average(pairs,weights=[3,2,1])
         # print(pairs," = ", average)
         distance.append(average)
+    return distance
+
+def count_distances2(top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece_mask, bottom_piece_mask):
+    distance = []
+    length = min(len(top_puzzle_white_pixel), len(bottom_puzzle_white_pixel))
+    print("lens:" ,len(top_puzzle_white_pixel), len(bottom_puzzle_white_pixel))
+    for step in range(0, length):
+        equalities=[]
+        for depth in range(3):
+            reward = get_b_or_w(bottom_piece_mask, step, top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece_mask, depth * 3)
+            equalities.append(reward)
+        print(equalities)
+        average = np.average(equalities,weights=[6,2,1])
+        distance.append(average)
+    print(distance)
     return distance
 
 
@@ -177,41 +209,109 @@ def calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2):
     n2 = number_of_rotations(edge_type2, "BOTTOM")
     bottom_piece = puzzle2.get_rotated(n2)
 
-
-
     vector_top_puzzle = get_vectors_from_corners(top_piece.corners)["BOTTOM"]
 
     top_puzzle_white_pixel = find_foremost_white_pixel(bounds=(vector_top_puzzle.point1, vector_top_puzzle.point2),
                                                     mask=top_piece.mask, y_start="BOTTOM")
-
     vector_bottom_puzzle = get_vectors_from_corners(bottom_piece.corners)["TOP"]
     bottom_puzzle_white_pixel = find_foremost_white_pixel(bounds=(vector_bottom_puzzle.point1, vector_bottom_puzzle.point2),
                                                     mask=bottom_piece.mask, y_start="TOP")
-
-
-
-
-    distances = count_distances(top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece, bottom_piece)
+    distances = count_distances(top_puzzle_white_pixel, bottom_puzzle_white_pixel, top_piece.image, bottom_piece.image)
     avg_distance = np.mean(distances)
-
-    # print("distances = ",distances)
-    # print("avg distance", avg_distance)
     scaled_distance = 1 - scale_result(avg_distance)
-
-    shape1, shape2 = puzzle1.mask.shape, puzzle2.mask.shape
-    image_shape = shape1[0] + shape2[0], shape1[1] + shape2[1], 3  # RGB
-
-    #background = np.zeros(image_shape, dtype=np.uint8)
-    #connection_point1 = vector1.get_middle()
-    #connection_point2 = vector2.get_middle()
-
-    #place_image_in_image(background, top_piece.image, (
-    #    background.shape[1] // 2 - connection_point1[0], background.shape[0] // 2 - connection_point1[1]))
-    #place_image_in_image(background, bottom_piece.image, (
-    #    background.shape[1] // 2 - connection_point2[0], background.shape[0] // 2 - connection_point2[1]))
-    # image_processing.view_image(background, title=str(scaled_distance))
-
     return scaled_distance
+
+
+def apply_mask(image, mask):
+    mask = cv2.morphologyEx(mask, cv2.MORPH_ERODE, np.ones((3,3)))
+    return cv2.bitwise_and(image, image, mask=~mask)
+
+def find_neighbours(coords, distance=3):
+    """
+        groups values by x, which values are close to each other
+        ex. [(0,0),(1,0), (2,0), (6,0), (7,0), (8,0), (9,0)] -> [[(0,0),(1,0),(2,0)], [(6,0),(7,0),(8,0),(9,0)]]
+    """
+    subsets = []
+    for i in range(len(coords)):
+        if i == 0:
+            subsets.append([coords[i][0]])
+        else:
+            if coords[i][0] - coords[i-1][0] <= distance:
+                subsets[-1].append(coords[i][0])
+            else:
+                subsets.append([coords[i][0]])
+    return subsets
+
+def find_edges(top_puzzle_white_pixel, bottom_puzzle_white_pixel, image1, image2):
+    white_pixels_coords1 = []
+    image_processing.view_image(image1)
+    print("\ttop",top_puzzle_white_pixel)
+    for x, y in top_puzzle_white_pixel:
+        print("a: ", image1[y, x], y, x)
+        if image1[y-5, x] == 255:
+            white_pixels_coords1.append((x, y-5))
+    white_pixels_coords2 = []
+
+    for x, y in bottom_puzzle_white_pixel:
+        print("b: ", image2[y, x], y, x)
+        if image2[y+5, x] == 255:
+            white_pixels_coords2.append((x, y+5))
+
+    print("e1:",white_pixels_coords1)
+    print("e2:",white_pixels_coords2)
+
+    edges1 = find_neighbours(white_pixels_coords1)
+    edges2 = find_neighbours(white_pixels_coords2)
+
+    print("edges1:", edges1)
+    print("edges2:", edges2)
+    grouped_edges1=[]
+    for subset in edges1:
+        grouped_edges1.append(int(np.mean(subset, axis=0)))
+    grouped_edges2=[]
+    for subset in edges2:
+        grouped_edges2.append(int(np.mean(subset, axis=0)))
+
+    print("grouped_edges1:", grouped_edges1)
+    print("grouped_edges2:", grouped_edges2)
+    print("TODO")
+    #TODO dla theo
+
+
+    return 0
+
+
+def calculate_edges_on_images_similarity(puzzle1, edge_type1, puzzle2, edge_type2):
+    n1 = number_of_rotations(edge_type1, "TOP")
+    top_piece = puzzle1.get_rotated(n1)
+    n2 = number_of_rotations(edge_type2, "BOTTOM")
+    bottom_piece = puzzle2.get_rotated(n2)
+
+    vector_top_puzzle = get_vectors_from_corners(top_piece.corners)["BOTTOM"]
+
+    top_puzzle_white_pixel = find_foremost_white_pixel(bounds=(vector_top_puzzle.point1, vector_top_puzzle.point2),mask=top_piece.mask, y_start="BOTTOM",step=2)
+    vector_bottom_puzzle = get_vectors_from_corners(bottom_piece.corners)["TOP"]
+    bottom_puzzle_white_pixel = find_foremost_white_pixel(bounds=(vector_bottom_puzzle.point1, vector_bottom_puzzle.point2),mask=bottom_piece.mask, y_start="TOP",step=2)
+
+    image1 = cv2.Canny(top_piece.image,10,200)
+    image2 = cv2.Canny(bottom_piece.image,10,200)
+
+    eroded_mask1 = cv2.erode(top_piece.mask, np.ones((5, 5), np.uint8), iterations=1)
+    eroded_mask2 = cv2.erode(bottom_piece.mask, np.ones((5, 5), np.uint8), iterations=1)
+
+    image1 = cv2.bitwise_and(image1, image1, mask=eroded_mask1)
+    image2 = cv2.bitwise_and(image2, image2, mask=eroded_mask2)
+    image1 = cv2.morphologyEx(image1, cv2.MORPH_DILATE, np.ones((3, 3), np.uint8))
+    image2 = cv2.morphologyEx(image2, cv2.MORPH_DILATE, np.ones((3, 3), np.uint8))
+
+    image_processing.view_image(top_piece.image)
+    image_processing.view_image(image1)
+    image_processing.view_image(bottom_piece.image)
+    image_processing.view_image(image2)
+
+    distances = find_edges(top_puzzle_white_pixel, bottom_puzzle_white_pixel, image1, image2)
+    avg_distance = np.average(distances)
+    return avg_distance
 
 
 def strip_colors(image):
@@ -265,9 +365,10 @@ def get_mask_xor_ratio(puzzle1, edge_type1, puzzle2, edge_type2):
     # print(f"compare similarities: similarity1={similarity1:.4}, similarity2={similarity2:.4}, similarity3={similarity3:.4}")
     length_similarity = 1 - abs(vector1.distance() - vector2.distance()) / max(vector1.distance(), vector2.distance())
 
-    image_similarity = calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2) #TODO
+    color_similarity = calculate_image_similarity(puzzle1, edge_type1, puzzle2, edge_type2)
+    edge_on_image_similarity = calculate_edges_on_images_similarity(puzzle1, edge_type1, puzzle2, edge_type2)
 
-    return similarity1, length_similarity, image_similarity, xor_img, close_up
+    return similarity1, length_similarity, color_similarity, edge_on_image_similarity, xor_img, close_up
 
 
 def flat_sides_match(puzzle1, edge1, puzzle2, edge2):
@@ -366,15 +467,15 @@ def test_connect_puzzles(pieces, edges):
         print(e)
         raise e
 
-    similarity, length_similarity, color_similarity, img1, img2 = connect_puzzles(puzzle1, edge1, puzzle2, edge2)
-    return similarity, length_similarity, color_similarity, [img1, img2], number_of_rotations(edge1, edge2)
+    similarity, length_similarity, color_similarity, edge_similarity, img1, img2 = connect_puzzles(puzzle1, edge1, puzzle2, edge2)
+    return similarity, length_similarity, color_similarity,edge_similarity, [img1, img2], number_of_rotations(edge1, edge2)
 
 
 def test_random_pairs():
     print("testing random pairs!!")
     edges = ["TOP", "RIGHT", "BOTTOM", "LEFT"]
-    puzzle_collection = PuzzleCollection.unpickle()
-    puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.NONE)
+    puzzle_collection = PuzzleCollection.unpickle("2024-06-25_scattered_bliss_v=3_r=True.pickle")
+    #puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.NONE)
     while True:
         try:
             random_indexes = random.sample(range(len(puzzle_collection.pieces)), 2)
@@ -390,16 +491,16 @@ def test_random_pairs():
 def test_pair(edge1, edge2, puzzle1, puzzle2, indexes):
     # image_processing.view_image(puzzle1.get_preview(), edge1)
     # image_processing.view_image(puzzle2.get_preview(), edge2)
-    similarity, length_similarity, color_similarity, imgs, rotate_value = test_connect_puzzles((puzzle1, puzzle2), (edge1, edge2))
+    similarity, length_similarity, color_similarity,edge_similarity, imgs, rotate_value = test_connect_puzzles((puzzle1, puzzle2), (edge1, edge2))
 
     print(f"testing pairs {indexes[0]} and {indexes[1]}, {edge1} and {edge2}")
     image = image_processing.images_to_image([puzzle1.get_preview(), puzzle2.get_preview()])
     image_processing.view_image(image, f"pair {indexes[0]} and {indexes[1]}")
 
     print(
-        f"edge_similarity = {similarity}, length_similarity = {length_similarity}, color_similarity= {color_similarity},  = ({indexes[0]}, {indexes[1]}, \"{edge1}\", \"{edge2}\"),")
+        f"edge_similarity = {similarity}, length_similarity = {length_similarity}, color_similarity= {color_similarity}, edge_sim= {edge_similarity}  = ({indexes[0]}, {indexes[1]}, \"{edge1}\", \"{edge2}\"),")
     print(f"notches: {puzzle1.get_notch(edge1)} {puzzle2.get_notch(edge2)}, rotations_needed = {rotate_value}")
-    print(genetic_algorithm.calculate_similarity(similarity, length_similarity, color_similarity))
+    print(genetic_algorithm.calculate_similarity(similarity, length_similarity, color_similarity,edge_similarity))
     imgs.extend([puzzle1.get_preview(), puzzle2.get_preview()])
     result = image_processing.images_to_image(imgs)
     image_processing.view_image(result, similarity)
@@ -410,8 +511,8 @@ def test_pairs(pairs):
     for match in pairs:
         try:
             index1, index2, edge1, edge2 = match
-            puzzle_collection = PuzzleCollection.unpickle("2024-06-26_processed_photo.pickle")
-            puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.NONE)
+            puzzle_collection = PuzzleCollection.unpickle("2024-06-25_scattered_bliss_v=3_r=True.pickle")
+            #puzzle_collection, _ = puzzle_collection.partition_by_notch_type(teeth_detection.NotchType.NONE)
             puzzle1, puzzle2 = puzzle_collection.pieces[index1], puzzle_collection.pieces[index2]
 
             test_pair(edge1, edge2, puzzle1, puzzle2, (index1, index2))
@@ -429,13 +530,13 @@ def view_all_ids(puzzle_collection):
 
 if __name__ == '__main__':
     matching_pairs = [
-        (28, 2, "TOP", "LEFT"),
-        (6, 0, "TOP", "TOP"),
-        (1, 20, "TOP", "RIGHT"),
-        (22, 23, "TOP", "LEFT"),
-        (27, 8, "BOTTOM", "RIGHT"),
-        (8, 13, "TOP", "RIGHT"),
-        (14, 1, "RIGHT", "BOTTOM"),
+        (1,12, "TOP" , "RIGHT")
+    ]
+    matching_pairs2 = [
+        (7, 6, "TOP","BOTTOM")
+    ]
+    matching_middle_bliss = [
+        (7, 2, "BOTTOM", "BOTTOM")
     ]
     problematic_pairs = [
         (14, 8, "BOTTOM", "RIGHT"),
@@ -449,6 +550,6 @@ if __name__ == '__main__':
     ]
 
     #test_pairs([(6, 0, "LEFT", "RIGHT")])
-    #test_pairs(matching_pairs)
+    test_pairs(matching_middle_bliss)
     # test_pairs(problematic_pairs)
-    test_random_pairs()
+    #test_random_pairs()
